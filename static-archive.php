@@ -405,13 +405,12 @@ class Static_Archive {
 							return;
 						}
 						var r = data.data;
-						var html = stat(r.total_posts, r.limited ? 'sampled' : 'entries');
+						var html = stat(r.total_posts, 'entries');
 						html += stat(r.total_archived, 'archived', r.total_archived === r.total_posts ? 'sa-ok' : '');
 						if (r.missing.length) html += stat(r.missing_capped ? '>10' : r.missing.length, 'missing', 'sa-error');
 						if (r.outdated.length) html += stat(r.outdated.length, 'outdated', 'sa-warn');
 						if (r.orphaned.length) html += stat(r.orphaned.length, 'orphaned', 'sa-warn');
 						statusEl.innerHTML = html;
-
 						if (r.missing.length) {
 							log('Missing files' + (r.missing_capped ? ' (showing first 10):' : ':'));
 							r.missing.slice(0, 10).forEach(function(m) { log('  [' + m.id + '] ' + m.slug + ' (' + m.title + ')'); });
