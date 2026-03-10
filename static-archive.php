@@ -39,23 +39,23 @@ class Static_Archive {
 	/**
 	 * When a post is published or updated, regenerate its HTML.
 	 */
-	public function on_post_status_change( $new_status, $old_status, $post ) {
-		if ( 'post' !== $post->post_type ) {
+	public function on_post_status_change( $new_status, $old_status, $wp_post ) {
+		if ( 'post' !== $wp_post->post_type ) {
 			return;
 		}
 
 		$generator = new Static_Archive_Generator();
 
-		$year = date( 'Y', strtotime( $post->post_date ) );
+		$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
 
 		if ( 'publish' === $new_status ) {
 			$generator->copy_stylesheet();
-			$generator->generate_post( $post->ID );
+			$generator->generate_post( $wp_post->ID );
 			$generator->generate_index();
 			$generator->generate_year_archive( $year );
 		} elseif ( 'publish' === $old_status && 'publish' !== $new_status ) {
 			// Post was unpublished.
-			$generator->delete_post_html( $post->ID );
+			$generator->delete_post_html( $wp_post->ID );
 			$generator->generate_index();
 			$generator->generate_year_archive( $year );
 		}
@@ -65,15 +65,15 @@ class Static_Archive {
 	 * When a post is deleted, remove its HTML file.
 	 */
 	public function on_post_delete( $post_id ) {
-		$post = get_post( $post_id );
-		if ( ! $post || 'post' !== $post->post_type ) {
+		$wp_post = get_post( $post_id );
+		if ( ! $wp_post || 'post' !== $wp_post->post_type ) {
 			return;
 		}
 
 		$generator = new Static_Archive_Generator();
 		$generator->delete_post_html( $post_id );
 		$generator->generate_index();
-		$year = date( 'Y', strtotime( $post->post_date ) );
+		$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
 		$generator->generate_year_archive( $year );
 	}
 
@@ -102,7 +102,9 @@ class Static_Archive {
 		}
 		check_admin_referer( 'static_archive_settings' );
 
-		$new_suffix = sanitize_text_field( $_POST['static_archive_filename_suffix'] );
+		$new_suffix = isset( $_POST['static_archive_filename_suffix'] )
+			? sanitize_text_field( wp_unslash( $_POST['static_archive_filename_suffix'] ) )
+			: '';
 		// Ensure it starts with - if non-empty.
 		if ( $new_suffix && '-' !== $new_suffix[0] ) {
 			$new_suffix = '-' . $new_suffix;
@@ -235,7 +237,7 @@ class Static_Archive {
 			<p class="sa-intro">This plugin generates a standalone HTML copy of all your posts, stored directly in the uploads directory alongside your images. The archive is fully self-contained &mdash; no WordPress needed to browse it. New posts are archived automatically when published, or you can regenerate everything at once below.</p>
 
 			<div class="sa-card">
-				<h2>Overview</h2>
+				<h2>Archive</h2>
 				<div class="sa-meta">
 					<div class="sa-meta-item">
 						<span class="sa-meta-label">Output directory</span>
@@ -254,6 +256,7 @@ class Static_Archive {
 				<div class="sa-actions">
 					<button id="static-archive-verify" class="button">Verify</button>
 					<button id="static-archive-generate" class="button button-primary">Generate All</button>
+					<button id="static-archive-delete-all" class="button" style="color: #d63638; border-color: #d63638;">Delete All Files</button>
 				</div>
 
 				<div id="static-archive-progress" class="sa-progress">
@@ -261,14 +264,6 @@ class Static_Archive {
 				</div>
 
 				<div id="static-archive-log" class="sa-log"></div>
-			</div>
-
-			<div class="sa-card">
-				<h2>Danger Zone</h2>
-				<p style="margin: 0 0 1rem; font-size: 14px; color: #50575e;">Delete all generated HTML files from the uploads directory. The archive can be regenerated at any time.</p>
-				<div class="sa-actions">
-					<button id="static-archive-delete-all" class="button" style="color: #d63638; border-color: #d63638;">Delete All Files</button>
-				</div>
 				<div id="static-archive-delete-log" class="sa-log"></div>
 			</div>
 
@@ -444,9 +439,9 @@ class Static_Archive {
 			wp_send_json_error( 'Permission denied.' );
 		}
 
-		$offset = isset( $_GET['offset'] ) ? absint( $_GET['offset'] ) : 0;
+		$offset    = isset( $_GET['offset'] ) ? absint( $_GET['offset'] ) : 0;
 		$generator = new Static_Archive_Generator();
-		$result = $generator->generate_batch( $offset );
+		$result    = $generator->generate_batch( $offset );
 
 		wp_send_json_success( $result );
 	}
@@ -462,7 +457,7 @@ class Static_Archive {
 		}
 
 		$generator = new Static_Archive_Generator();
-		$report = $generator->verify();
+		$report    = $generator->verify();
 
 		wp_send_json_success( $report );
 	}

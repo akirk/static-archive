@@ -35,18 +35,22 @@ class Static_Archive_CLI {
 
 		WP_CLI::log( 'Generating static archive...' );
 
-		$stats = $generator->generate_all( function( $current, $total, $status, $slug ) {
-			WP_CLI::log( sprintf( '[%d/%d] %s: %s', $current, $total, $status, $slug ) );
-		} );
+		$stats = $generator->generate_all(
+			function ( $current, $total, $status, $slug ) {
+				WP_CLI::log( sprintf( '[%d/%d] %s: %s', $current, $total, $status, $slug ) );
+			}
+		);
 
-		WP_CLI::success( sprintf(
-			'Done. %d created, %d updated, %d unchanged, %d skipped out of %d posts.',
-			$stats['created'],
-			$stats['updated'],
-			$stats['unchanged'],
-			$stats['skipped'],
-			$stats['total']
-		) );
+		WP_CLI::success(
+			sprintf(
+				'Done. %d created, %d updated, %d unchanged, %d skipped out of %d posts.',
+				$stats['created'],
+				$stats['updated'],
+				$stats['unchanged'],
+				$stats['skipped'],
+				$stats['total']
+			)
+		);
 
 		WP_CLI::log( 'Output: ' . $generator->get_output_dir() );
 	}
@@ -60,15 +64,18 @@ class Static_Archive_CLI {
 	 *
 	 * @subcommand verify
 	 */
+	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WP-CLI signature.
 	public function verify( $args, $assoc_args ) {
 		$generator = new Static_Archive_Generator();
 		$report    = $generator->verify();
 
-		WP_CLI::log( sprintf(
-			'Posts: %d total, %d archived.',
-			$report['total_posts'],
-			$report['total_archived']
-		) );
+		WP_CLI::log(
+			sprintf(
+				'Posts: %d total, %d archived.',
+				$report['total_posts'],
+				$report['total_archived']
+			)
+		);
 
 		if ( ! empty( $report['missing'] ) ) {
 			WP_CLI::warning( count( $report['missing'] ) . ' missing HTML files:' );

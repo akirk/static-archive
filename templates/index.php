@@ -26,21 +26,21 @@
 			<a href="#year-<?php echo esc_attr( $y ); ?>"><?php echo esc_html( $y ); ?></a>
 			<?php endforeach; ?>
 		</nav>
-		<?php foreach ( $years as $year => $posts ) : ?>
-		<section class="year-group" id="year-<?php echo esc_attr( $year ); ?>">
+		<?php foreach ( $years as $archive_year => $archive_posts ) : ?>
+		<section class="year-group" id="year-<?php echo esc_attr( $archive_year ); ?>">
 			<h2>
-				<?php echo esc_html( $year ); ?>
+				<?php echo esc_html( $archive_year ); ?>
 				<span class="year-links">
-					<a href="<?php echo esc_attr( $year . '/' . $year_filenames['asc'] ); ?>">oldest first</a>
-					<a href="<?php echo esc_attr( $year . '/' . $year_filenames['desc'] ); ?>">newest first</a>
+					<a href="<?php echo esc_attr( $archive_year . '/' . $year_filenames['asc'] ); ?>">oldest first</a>
+					<a href="<?php echo esc_attr( $archive_year . '/' . $year_filenames['desc'] ); ?>">newest first</a>
 				</span>
 			</h2>
 			<ul class="post-list">
-				<?php foreach ( $posts as $post ) : ?>
+				<?php foreach ( $archive_posts as $entry ) : ?>
 				<li>
-					<time datetime="<?php echo esc_attr( $post['date_iso'] ); ?>"><?php echo esc_html( $post['date'] ); ?></time>
-					<a href="<?php echo esc_attr( $post['href'] ); ?>"><?php echo esc_html( $post['title'] ); ?></a>
-					<span class="post-author"><?php echo esc_html( $post['author'] ); ?></span>
+					<time datetime="<?php echo esc_attr( $entry['date_iso'] ); ?>"><?php echo esc_html( $entry['date'] ); ?></time>
+					<a href="<?php echo esc_attr( $entry['href'] ); ?>"><?php echo esc_html( $entry['title'] ); ?></a>
+					<span class="post-author"><?php echo esc_html( $entry['author'] ); ?></span>
 				</li>
 				<?php endforeach; ?>
 			</ul>

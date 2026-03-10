@@ -25,8 +25,20 @@
 			<?php echo $content; // Already processed HTML. ?>
 		</article>
 		<nav class="post-nav">
-			<span><?php if ( $prev_link ) echo $prev_link; ?></span>
-			<span><?php if ( $next_link ) echo $next_link; ?></span>
+			<span>
+			<?php
+			if ( $prev_link ) {
+				echo $prev_link;
+			}
+			?>
+			</span>
+			<span>
+			<?php
+			if ( $next_link ) {
+				echo $next_link;
+			}
+			?>
+			</span>
 		</nav>
 	</main>
 </body>

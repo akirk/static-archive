@@ -1,0 +1,28 @@
+<?xml version="1.0"?>
+<ruleset name="Static Archive">
+	<description>PHPCS rules for Static Archive plugin.</description>
+
+	<file>.</file>
+
+	<exclude-pattern>vendor/*</exclude-pattern>
+	<exclude-pattern>node_modules/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg value="sp"/>
+
+	<rule ref="WordPress">
+		<exclude name="WordPress.Files.FileName"/>
+
+		<!-- Templates generate standalone HTML, not WP pages. -->
+		<exclude name="WordPress.WP.EnqueuedResources"/>
+
+		<!-- Writing/reading generated files to uploads, not remote URLs or plugin installs. -->
+		<exclude name="WordPress.WP.AlternativeFunctions"/>
+
+		<!-- Template output is pre-escaped at construction time. -->
+		<exclude name="WordPress.Security.EscapeOutput"/>
+
+		<!-- Not adding boilerplate doc comments to every file/class/function. -->
+		<exclude name="Squiz.Commenting"/>
+	</rule>
+</ruleset>

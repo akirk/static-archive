@@ -1,0 +1,19 @@
+{
+    "name": "akirk/static-archive",
+    "type": "wordpress-plugin",
+    "authors": [
+        {
+            "name": "Alex Kirk",
+            "email": "akirk@users.noreply.github.com"
+        }
+    ],
+    "require-dev": {
+        "wp-coding-standards/wpcs": "*",
+        "dealerdirect/phpcodesniffer-composer-installer": "*"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true
+        }
+    }
+}
