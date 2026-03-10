@@ -44,11 +44,11 @@ class Static_Archive_Generator {
 		return get_option( 'static_archive_post_types', array( 'post', 'page' ) );
 	}
 
-	private function should_output_html() {
+	public function should_output_html() {
 		return 'markdown' !== $this->output_format;
 	}
 
-	private function should_output_markdown() {
+	public function should_output_markdown() {
 		return 'html' !== $this->output_format;
 	}
 
@@ -59,14 +59,14 @@ class Static_Archive_Generator {
 	 * @param string $ext  File extension.
 	 * @return string
 	 */
-	private function filename( $base, $ext = 'html' ) {
+	public function filename( $base, $ext = 'html' ) {
 		return $base . $this->suffix . '.' . $ext;
 	}
 
 	/**
 	 * Get the relative path for a post's file (e.g. '2024/post-123-xK4mQ9p.html').
 	 */
-	private function get_post_relative_path( $wp_post, $ext = 'html' ) {
+	public function get_post_relative_path( $wp_post, $ext = 'html' ) {
 		$prefix = $wp_post->post_type;
 		if ( 'page' === $wp_post->post_type ) {
 			return 'pages/' . $this->filename( $prefix . '-' . $wp_post->ID, $ext );
@@ -101,7 +101,7 @@ class Static_Archive_Generator {
 	 *
 	 * @return array { asc: string, desc: string }
 	 */
-	private function get_year_archive_filenames( $ext = 'html' ) {
+	public function get_year_archive_filenames( $ext = 'html' ) {
 		return array(
 			'asc'  => $this->filename( 'archive', $ext ),
 			'desc' => $this->filename( 'latest', $ext ),
@@ -111,14 +111,14 @@ class Static_Archive_Generator {
 	/**
 	 * Get the post types that use year-based directory structure (everything except page).
 	 */
-	private function get_dated_post_types() {
+	public function get_dated_post_types() {
 		return array_values( array_diff( $this->post_types, array( 'page' ) ) );
 	}
 
 	/**
 	 * Write a file, returning 'created', 'updated', or 'unchanged'.
 	 */
-	private function write_file( $file, $content, $mtime = 0 ) {
+	public function write_file( $file, $content, $mtime = 0 ) {
 		$existed = file_exists( $file );
 
 		if ( $existed && file_get_contents( $file ) === $content ) {
@@ -178,7 +178,7 @@ class Static_Archive_Generator {
 
 		// Render content.
 		$content = apply_filters( 'the_content', $wp_post->post_content );
-		$content = $this->rewrite_urls( $content );
+		$content = $this->rewrite_urls( $content, dirname( $this->get_post_file_path( $wp_post ) ) );
 
 		// Template variables.
 		$post_title       = $wp_post->post_title;
@@ -205,6 +205,7 @@ class Static_Archive_Generator {
 		}
 
 		if ( $this->should_output_markdown() ) {
+			$content_md = $this->html_to_markdown( $content );
 			ob_start();
 			include dirname( __DIR__ ) . '/templates/post.md.php';
 			$result = $this->write_file( $this->get_post_file_path( $wp_post, 'md' ), ob_get_clean(), $mtime );
@@ -369,18 +370,20 @@ class Static_Archive_Generator {
 			return;
 		}
 
-		$entries = array();
+		$from_dir = $this->output_dir . '/' . $year;
+		$entries  = array();
 		foreach ( $year_posts as $wp_post ) {
 			$content = apply_filters( 'the_content', $wp_post->post_content );
-			$content = $this->rewrite_urls( $content );
+			$content = $this->rewrite_urls( $content, $from_dir );
 
 			$entries[] = array(
-				'title'    => $wp_post->post_title,
-				'date'     => date_i18n( get_option( 'date_format' ), strtotime( $wp_post->post_date ) ),
-				'date_iso' => gmdate( 'Y-m-d', strtotime( $wp_post->post_date ) ),
-				'author'   => get_the_author_meta( 'display_name', $wp_post->post_author ),
-				'content'  => $content,
-				'href'     => $this->filename( $wp_post->post_type . '-' . $wp_post->ID ),
+				'title'      => $wp_post->post_title,
+				'date'       => date_i18n( get_option( 'date_format' ), strtotime( $wp_post->post_date ) ),
+				'date_iso'   => gmdate( 'Y-m-d', strtotime( $wp_post->post_date ) ),
+				'author'     => get_the_author_meta( 'display_name', $wp_post->post_author ),
+				'content'    => $content,
+				'content_md' => $this->should_output_markdown() ? $this->html_to_markdown( $content ) : '',
+				'href'       => $this->filename( $wp_post->post_type . '-' . $wp_post->ID ),
 			);
 		}
 
@@ -390,7 +393,7 @@ class Static_Archive_Generator {
 		$lang             = $this->lang;
 		$index_url        = '../' . $this->get_index_filename();
 		$style_url        = '../' . $this->get_style_filename();
-		$dir              = $this->output_dir . '/' . $year;
+		$dir              = $from_dir;
 		wp_mkdir_p( $dir );
 
 		// ASC version (oldest first).
@@ -671,7 +674,7 @@ class Static_Archive_Generator {
 	/**
 	 * Get a display title for a post, falling back to excerpt, content snippet, or date.
 	 */
-	private function get_display_title( $wp_post ) {
+	public function get_display_title( $wp_post ) {
 		if ( $wp_post->post_title ) {
 			return $wp_post->post_title;
 		}
@@ -686,23 +689,140 @@ class Static_Archive_Generator {
 	}
 
 	/**
-	 * Rewrite absolute upload URLs to relative paths.
-	 * Since post HTML files live in {year}/ subdirectories, all paths use ../ prefix.
+	 * Convert HTML to Markdown.
 	 */
-	private function rewrite_urls( $content ) {
-		$pattern = '/(?:https?:)?\/\/' . preg_quote( wp_parse_url( $this->upload_baseurl, PHP_URL_HOST ), '/' )
-			. preg_quote( wp_parse_url( $this->upload_baseurl, PHP_URL_PATH ), '/' ) . '\//';
-		$content = preg_replace( $pattern, '../', $content );
+	public function html_to_markdown( $html ) {
+		$html = html_entity_decode( $html, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+
+		// Fenced code blocks.
+		$html = preg_replace_callback(
+			'/<pre[^>]*>\s*<code[^>]*>(.*?)<\/code>\s*<\/pre>/si',
+			function ( $m ) {
+				$code = html_entity_decode( strip_tags( $m[1] ), ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+				return "\n\n```\n" . trim( $code ) . "\n```\n\n";
+			},
+			$html
+		);
+
+		// Headings.
+		for ( $i = 6; $i >= 1; $i-- ) {
+			$hashes = str_repeat( '#', $i );
+			$html   = preg_replace_callback(
+				'/<h' . $i . '[^>]*>(.*?)<\/h' . $i . '>/si',
+				function ( $m ) use ( $hashes ) {
+					return "\n\n{$hashes} " . trim( strip_tags( $m[1] ) ) . "\n\n";
+				},
+				$html
+			);
+		}
+
+		// Bold and italic.
+		$html = preg_replace( '/<(strong|b)[^>]*>(.*?)<\/(strong|b)>/si', '**$2**', $html );
+		$html = preg_replace( '/<(em|i)[^>]*>(.*?)<\/(em|i)>/si', '*$2*', $html );
+
+		// Inline code.
+		$html = preg_replace( '/<code[^>]*>(.*?)<\/code>/si', '`$1`', $html );
+
+		// Images (before links).
+		$html = preg_replace_callback(
+			'/<img[^>]+\/?>/si',
+			function ( $m ) {
+				preg_match( '/src=["\']([^"\']*)["\']/', $m[0], $src );
+				preg_match( '/alt=["\']([^"\']*)["\']/', $m[0], $alt );
+				return '![' . ( isset( $alt[1] ) ? $alt[1] : '' ) . '](' . ( isset( $src[1] ) ? $src[1] : '' ) . ')';
+			},
+			$html
+		);
+
+		// Links.
+		$html = preg_replace_callback(
+			'/<a[^>]+href=["\']([^"\']*)["\'][^>]*>(.*?)<\/a>/si',
+			function ( $m ) {
+				return '[' . trim( strip_tags( $m[2] ) ) . '](' . $m[1] . ')';
+			},
+			$html
+		);
+
+		// Blockquotes.
+		$html = preg_replace_callback(
+			'/<blockquote[^>]*>(.*?)<\/blockquote>/si',
+			function ( $m ) {
+				$inner = trim( strip_tags( $m[1] ) );
+				$lines = explode( "\n", $inner );
+				return "\n\n" . implode( "\n", array_map( fn( $l ) => '> ' . $l, $lines ) ) . "\n\n";
+			},
+			$html
+		);
+
+		// Unordered lists.
+		$html = preg_replace_callback(
+			'/<ul[^>]*>(.*?)<\/ul>/si',
+			function ( $m ) {
+				return "\n\n" . preg_replace( '/<li[^>]*>(.*?)<\/li>/si', "- $1\n", $m[1] ) . "\n";
+			},
+			$html
+		);
+
+		// Ordered lists.
+		$html = preg_replace_callback(
+			'/<ol[^>]*>(.*?)<\/ol>/si',
+			function ( $m ) {
+				$n = 0;
+				return "\n\n" . preg_replace_callback(
+					'/<li[^>]*>(.*?)<\/li>/si',
+					function ( $li ) use ( &$n ) {
+						return ( ++$n ) . '. ' . $li[1] . "\n";
+					},
+					$m[1]
+				) . "\n";
+			},
+			$html
+		);
+
+		// Horizontal rules, line breaks, and paragraphs.
+		$html = preg_replace( '/<hr[^>]*\/?>/si', "\n\n---\n\n", $html );
+		$html = preg_replace( '/<br[^>]*\/?>/si', "\\\n", $html );
+		$html = preg_replace( '/<p[^>]*>(.*?)<\/p>/si', "$1\n\n", $html );
+
+		$html = strip_tags( $html );
+		$html = preg_replace( '/[ \t]+\n/', "\n", $html );
+		$html = preg_replace( '/\n{3,}/', "\n\n", $html );
+
+		return trim( $html );
+	}
+
+	/**
+	 * Rewrite absolute upload URLs to relative paths, computed from $from_dir.
+	 *
+	 * @param string $content  HTML content.
+	 * @param string $from_dir Absolute path of the output file's directory.
+	 */
+	public function rewrite_urls( $content, $from_dir ) {
+		$upload_host = wp_parse_url( $this->upload_baseurl, PHP_URL_HOST );
+		$upload_path = rtrim( wp_parse_url( $this->upload_baseurl, PHP_URL_PATH ), '/' );
+
+		$pattern = '/(?:https?:)?\/\/' . preg_quote( $upload_host, '/' )
+			. preg_quote( $upload_path, '/' ) . '\/([^"\'>\s]*)/';
+
+		$content = preg_replace_callback(
+			$pattern,
+			function ( $m ) use ( $from_dir ) {
+				$target = $this->output_dir . '/' . $m[1];
+				return $this->make_relative_path( $from_dir, $target );
+			},
+			$content
+		);
 
 		// Rewrite internal post permalinks to archive files.
 		$site_url = preg_quote( trailingslashit( home_url() ), '/' );
 		$content  = preg_replace_callback(
 			'/href=["\']' . $site_url . '([a-z0-9-]+)\/?["\']/',
-			function ( $matches ) {
+			function ( $matches ) use ( $from_dir ) {
 				$slug    = $matches[1];
 				$wp_post = get_page_by_path( $slug, OBJECT, $this->post_types );
 				if ( $wp_post && 'publish' === $wp_post->post_status ) {
-					return 'href="../' . $this->get_post_relative_path( $wp_post ) . '"';
+					$target = $this->output_dir . '/' . $this->get_post_relative_path( $wp_post );
+					return 'href="' . $this->make_relative_path( $from_dir, $target ) . '"';
 				}
 				return $matches[0];
 			},
@@ -710,6 +830,27 @@ class Static_Archive_Generator {
 		);
 
 		return $content;
+	}
+
+	/**
+	 * Compute a relative file path from a directory to a target file.
+	 *
+	 * @param string $from_dir Absolute path of the source directory.
+	 * @param string $to_file  Absolute path of the target file.
+	 * @return string
+	 */
+	public function make_relative_path( $from_dir, $to_file ) {
+		$from_parts = array_values( array_filter( explode( '/', $from_dir ), fn( $p ) => '' !== $p ) );
+		$to_parts   = array_values( array_filter( explode( '/', $to_file ), fn( $p ) => '' !== $p ) );
+
+		$i   = 0;
+		$len = min( count( $from_parts ), count( $to_parts ) );
+		while ( $i < $len && $from_parts[ $i ] === $to_parts[ $i ] ) {
+			++$i;
+		}
+
+		$ups = count( $from_parts ) - $i;
+		return str_repeat( '../', $ups ) . implode( '/', array_slice( $to_parts, $i ) );
 	}
 
 	/**

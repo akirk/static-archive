@@ -5,7 +5,7 @@
 
 *<?php echo $entry['date']; ?> — <?php echo $entry['author']; ?>*
 
-<?php echo $entry['content']; ?>
+<?php echo $entry['content_md']; ?>
 
 ---
 

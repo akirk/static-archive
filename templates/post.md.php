@@ -13,4 +13,4 @@ author: <?php echo $post_author; ?>
 <?php endif; ?>
 *<?php echo $post_date; ?> — <?php echo $post_author; ?>*
 
-<?php echo $content; ?>
+<?php echo $content_md; ?>
