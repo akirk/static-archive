@@ -7,12 +7,16 @@ if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
 class Static_Archive_CLI {
 
 	/**
-	 * Generate static HTML archive.
+	 * Generate static archive files.
+	 *
+	 * Generates HTML and/or Markdown files for all configured post types
+	 * (posts, pages, and any custom post types selected in Settings).
+	 * The output format depends on the plugin settings.
 	 *
 	 * ## OPTIONS
 	 *
 	 * [--post_id=<id>]
-	 * : Generate HTML for a single post.
+	 * : Generate files for a single post or page.
 	 *
 	 * ## EXAMPLES
 	 *
@@ -43,7 +47,7 @@ class Static_Archive_CLI {
 
 		WP_CLI::success(
 			sprintf(
-				'Done. %d created, %d updated, %d unchanged, %d skipped out of %d posts.',
+				'Done. %d created, %d updated, %d unchanged, %d skipped out of %d entries.',
 				$stats['created'],
 				$stats['updated'],
 				$stats['unchanged'],
@@ -56,7 +60,10 @@ class Static_Archive_CLI {
 	}
 
 	/**
-	 * Verify the static archive against published posts.
+	 * Verify the static archive against published content.
+	 *
+	 * Checks all configured post types for missing, outdated, or orphaned
+	 * archive files.
 	 *
 	 * ## EXAMPLES
 	 *
@@ -71,28 +78,28 @@ class Static_Archive_CLI {
 
 		WP_CLI::log(
 			sprintf(
-				'Posts: %d total, %d archived.',
+				'Entries: %d total, %d archived.',
 				$report['total_posts'],
 				$report['total_archived']
 			)
 		);
 
 		if ( ! empty( $report['missing'] ) ) {
-			WP_CLI::warning( count( $report['missing'] ) . ' missing HTML files:' );
+			WP_CLI::warning( count( $report['missing'] ) . ' missing files:' );
 			foreach ( $report['missing'] as $item ) {
 				WP_CLI::log( sprintf( '  - [%d] %s (%s)', $item['id'], $item['slug'], $item['title'] ) );
 			}
 		}
 
 		if ( ! empty( $report['outdated'] ) ) {
-			WP_CLI::warning( count( $report['outdated'] ) . ' outdated HTML files:' );
+			WP_CLI::warning( count( $report['outdated'] ) . ' outdated files:' );
 			foreach ( $report['outdated'] as $item ) {
 				WP_CLI::log( sprintf( '  - [%d] %s (%s)', $item['id'], $item['slug'], $item['title'] ) );
 			}
 		}
 
 		if ( ! empty( $report['orphaned'] ) ) {
-			WP_CLI::warning( count( $report['orphaned'] ) . ' orphaned HTML files:' );
+			WP_CLI::warning( count( $report['orphaned'] ) . ' orphaned files:' );
 			foreach ( $report['orphaned'] as $file ) {
 				WP_CLI::log( '  - ' . $file );
 			}
