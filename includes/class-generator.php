@@ -281,6 +281,37 @@ class Static_Archive_Generator {
 	}
 
 	/**
+	 * Delete all generated archive files. Returns the number of files deleted.
+	 */
+	public function delete_all() {
+		$files = array(
+			$this->output_dir . '/archive' . $this->suffix . '.html',
+			$this->output_dir . '/style.css',
+		);
+
+		foreach ( glob( $this->output_dir . '/[0-9][0-9][0-9][0-9]' ) as $year_dir ) {
+			if ( ! is_dir( $year_dir ) ) {
+				continue;
+			}
+			$files[] = $year_dir . '/archive' . $this->suffix . '.html';
+			$files[] = $year_dir . '/latest' . $this->suffix . '.html';
+			foreach ( glob( $year_dir . '/post-*' . $this->suffix . '.html' ) as $post_file ) {
+				$files[] = $post_file;
+			}
+		}
+
+		$deleted = 0;
+		foreach ( $files as $file ) {
+			if ( file_exists( $file ) ) {
+				wp_delete_file( $file );
+				++$deleted;
+			}
+		}
+
+		return $deleted;
+	}
+
+	/**
 	 * Copy the stylesheet to the output directory.
 	 */
 	public function copy_stylesheet() {

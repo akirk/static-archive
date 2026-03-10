@@ -23,6 +23,7 @@ class Static_Archive {
 		add_action( 'admin_menu', array( $this, 'add_admin_page' ) );
 		add_action( 'wp_ajax_static_archive_batch', array( $this, 'ajax_batch' ) );
 		add_action( 'wp_ajax_static_archive_verify', array( $this, 'ajax_verify' ) );
+		add_action( 'wp_ajax_static_archive_delete_all', array( $this, 'ajax_delete_all' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'add_plugin_action_links' ) );
 	}
 
@@ -263,6 +264,15 @@ class Static_Archive {
 			</div>
 
 			<div class="sa-card">
+				<h2>Danger Zone</h2>
+				<p style="margin: 0 0 1rem; font-size: 14px; color: #50575e;">Delete all generated HTML files from the uploads directory. The archive can be regenerated at any time.</p>
+				<div class="sa-actions">
+					<button id="static-archive-delete-all" class="button" style="color: #d63638; border-color: #d63638;">Delete All Files</button>
+				</div>
+				<div id="static-archive-delete-log" class="sa-log"></div>
+			</div>
+
+			<div class="sa-card">
 				<h2>Settings</h2>
 				<form method="post">
 					<?php wp_nonce_field( 'static_archive_settings' ); ?>
@@ -392,6 +402,32 @@ class Static_Archive {
 				verify();
 			});
 
+			var deleteAllBtn = document.getElementById('static-archive-delete-all');
+			var deleteLogEl = document.getElementById('static-archive-delete-log');
+
+			deleteAllBtn.addEventListener('click', function() {
+				if ( ! window.confirm('Delete all generated archive files? This cannot be undone, but you can regenerate them at any time.') ) {
+					return;
+				}
+				deleteAllBtn.disabled = true;
+				deleteLogEl.textContent = '';
+				fetch(ajaxurl + '?action=static_archive_delete_all&_wpnonce=' + nonce)
+					.then(function(r) { return r.json(); })
+					.then(function(data) {
+						if (!data.success) {
+							deleteLogEl.textContent = 'Error: ' + (data.data || 'Unknown error');
+						} else {
+							deleteLogEl.textContent = 'Deleted ' + data.data.deleted + ' file' + (data.data.deleted === 1 ? '' : 's') + '.';
+							verify();
+						}
+						deleteAllBtn.disabled = false;
+					})
+					.catch(function(err) {
+						deleteLogEl.textContent = 'Error: ' + err.message;
+						deleteAllBtn.disabled = false;
+					});
+			});
+
 			verify();
 		})();
 		</script>
@@ -429,6 +465,22 @@ class Static_Archive {
 		$report = $generator->verify();
 
 		wp_send_json_success( $report );
+	}
+
+	/**
+	 * AJAX: Delete all generated archive files.
+	 */
+	public function ajax_delete_all() {
+		check_ajax_referer( 'static_archive' );
+
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_send_json_error( 'Permission denied.' );
+		}
+
+		$generator = new Static_Archive_Generator();
+		$deleted   = $generator->delete_all();
+
+		wp_send_json_success( array( 'deleted' => $deleted ) );
 	}
 }
 
