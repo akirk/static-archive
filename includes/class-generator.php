@@ -177,7 +177,7 @@ class Static_Archive_Generator {
 			$years[ $year ][] = array(
 				'title'    => $this->get_display_title( $post ),
 				'href'     => $this->get_post_relative_path( $post ),
-				'date'     => date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) ),
+				'date'     => date_i18n( 'j. F', strtotime( $post->post_date ) ),
 				'date_iso' => gmdate( 'Y-m-d', strtotime( $post->post_date ) ),
 				'author'   => get_the_author_meta( 'display_name', $post->post_author ),
 			);

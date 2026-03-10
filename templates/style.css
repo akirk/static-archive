@@ -42,9 +42,9 @@ a:hover {
 }
 
 main {
-	max-width: 42rem;
+	max-width: 56rem;
 	margin: 0 auto;
-	padding: 2rem 1rem;
+	padding: 2rem 1.5rem;
 }
 
 article {
@@ -166,7 +166,7 @@ article .wp-block-gallery .wp-block-image img {
 	color: #666;
 	font-size: 0.85rem;
 	display: inline-block;
-	width: 6rem;
+	width: 8rem;
 }
 
 .year-group {
@@ -240,17 +240,26 @@ article h2 a:hover {
 	color: #0055a4;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
 	html {
 		font-size: 16px;
+	}
+
+	main {
+		padding: 1.5rem 1rem;
 	}
 
 	article h1 {
 		font-size: 1.5rem;
 	}
 
+	.post-list li {
+		padding: 0.5rem 0;
+	}
+
 	.post-list time {
 		display: block;
 		width: auto;
+		font-size: 0.8rem;
 	}
 }
