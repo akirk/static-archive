@@ -358,15 +358,29 @@ class Static_Archive_Generator {
 			'skipped'   => 0,
 		);
 
+		$first_date = '';
+		$last_date  = '';
+
 		foreach ( $batch as $post_id ) {
 			$status = $this->generate_post( $post_id );
 			$stats[ $status ]++;
+
+			$post = get_post( $post_id );
+			if ( $post ) {
+				$d = date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) );
+				if ( ! $first_date ) {
+					$first_date = $d;
+				}
+				$last_date = $d;
+			}
 		}
 
 		$next_offset = $offset + $limit;
 		$has_more    = $next_offset < $total;
 
+		$phase = 'posts';
 		if ( ! $has_more ) {
+			$phase = 'indexes';
 			$this->generate_index();
 			$this->generate_year_archives();
 		}
@@ -377,6 +391,9 @@ class Static_Archive_Generator {
 			'next_offset' => $next_offset,
 			'total'       => $total,
 			'processed'   => $offset + count( $batch ),
+			'first_date'  => $first_date,
+			'last_date'   => $last_date,
+			'phase'       => $phase,
 		);
 	}
 

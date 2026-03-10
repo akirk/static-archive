@@ -350,11 +350,18 @@ class Static_Archive {
 						var pct = Math.round(r.processed / r.total * 100);
 						barEl.style.width = pct + '%';
 						barEl.textContent = r.processed + ' / ' + r.total;
-						log('Batch: ' + r.stats.created + ' created, ' + r.stats.updated + ' updated, ' + r.stats.unchanged + ' unchanged');
+
+						var range = r.first_date === r.last_date ? r.first_date : r.first_date + ' – ' + r.last_date;
+						var parts = [];
+						if (r.stats.created) parts.push(r.stats.created + ' created');
+						if (r.stats.updated) parts.push(r.stats.updated + ' updated');
+						if (r.stats.unchanged) parts.push(r.stats.unchanged + ' unchanged');
+						log(r.processed + '/' + r.total + ' (' + range + '): ' + parts.join(', '));
 
 						if (r.has_more) {
 							generateBatch(r.next_offset);
 						} else {
+							log('Generating indexes and year archives…');
 							log('Done!');
 							running = false;
 							generateBtn.disabled = false;
