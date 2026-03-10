@@ -16,7 +16,7 @@
 			<h1><?php echo esc_html( $post_title ); ?></h1>
 			<?php endif; ?>
 			<div class="post-meta">
-				<time datetime="<?php echo esc_attr( $post_date_iso ); ?>"><?php echo esc_html( $post_date ); ?></time>
+				<a href="<?php echo esc_attr( $year_archive_url ); ?>"><time datetime="<?php echo esc_attr( $post_date_iso ); ?>"><?php echo esc_html( $post_date ); ?></time></a>
 				<span class="post-author"><?php echo esc_html( $post_author ); ?></span>
 			</div>
 			<?php echo $content; // Already processed HTML. ?>

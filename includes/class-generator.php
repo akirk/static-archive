@@ -121,8 +121,9 @@ class Static_Archive_Generator {
 		$post_author   = get_the_author_meta( 'display_name', $post->post_author );
 		$blog_name     = $this->blog_name;
 		$lang          = $this->lang;
-		$index_url     = '../' . $this->get_index_filename();
-		$style_url     = '../style.css';
+		$index_url         = '../' . $this->get_index_filename();
+		$style_url         = '../style.css';
+		$year_archive_url  = $this->filename( 'latest' );
 
 		ob_start();
 		include dirname( __DIR__ ) . '/templates/post.php';
