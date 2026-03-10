@@ -628,24 +628,28 @@ class Static_Archive_Generator {
 		}
 
 		foreach ( $all_posts as $wp_post ) {
+			$post_missing  = false;
+			$post_outdated = false;
 			foreach ( $exts as $ext ) {
 				$file                        = $this->get_post_file_path( $wp_post, $ext );
 				$rel_path                    = $this->get_post_relative_path( $wp_post, $ext );
 				$expected_files[ $rel_path ] = true;
 
 				if ( ! file_exists( $file ) ) {
-					$missing[] = array(
-						'id'    => $wp_post->ID,
-						'slug'  => $wp_post->post_name,
-						'title' => $wp_post->post_title,
-					);
+					$post_missing = true;
 				} elseif ( filemtime( $file ) < strtotime( $wp_post->post_modified ) ) {
-					$outdated[] = array(
-						'id'    => $wp_post->ID,
-						'slug'  => $wp_post->post_name,
-						'title' => $wp_post->post_title,
-					);
+					$post_outdated = true;
 				}
+			}
+			$entry = array(
+				'id'    => $wp_post->ID,
+				'slug'  => $wp_post->post_name,
+				'title' => $wp_post->post_title,
+			);
+			if ( $post_missing ) {
+				$missing[] = $entry;
+			} elseif ( $post_outdated ) {
+				$outdated[] = $entry;
 			}
 		}
 
