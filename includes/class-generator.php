@@ -8,6 +8,8 @@ class Static_Archive_Generator {
 	private $blog_description;
 	private $lang;
 	private $suffix;
+	private $post_types;
+	private $output_format;
 
 	public function __construct() {
 		$upload_dir             = wp_get_upload_dir();
@@ -17,6 +19,8 @@ class Static_Archive_Generator {
 		$this->blog_description = get_bloginfo( 'description' );
 		$this->lang             = substr( get_locale(), 0, 2 );
 		$this->suffix           = self::get_filename_suffix();
+		$this->post_types       = self::get_post_types();
+		$this->output_format    = get_option( 'static_archive_output_format', 'html' );
 	}
 
 	/**
@@ -34,35 +38,55 @@ class Static_Archive_Generator {
 	}
 
 	/**
+	 * Get the configured post types.
+	 */
+	public static function get_post_types() {
+		return get_option( 'static_archive_post_types', array( 'post', 'page' ) );
+	}
+
+	private function should_output_html() {
+		return 'markdown' !== $this->output_format;
+	}
+
+	private function should_output_markdown() {
+		return 'html' !== $this->output_format;
+	}
+
+	/**
 	 * Build a filename with the suffix, e.g. 'post-123' → 'post-123-xK4mQ9p.html'.
 	 *
 	 * @param string $base Base name without extension.
+	 * @param string $ext  File extension.
 	 * @return string
 	 */
-	private function filename( $base ) {
-		return $base . $this->suffix . '.html';
+	private function filename( $base, $ext = 'html' ) {
+		return $base . $this->suffix . '.' . $ext;
 	}
 
 	/**
-	 * Get the relative path for a post's HTML file (e.g. '2024/post-123-xK4mQ9p.html').
+	 * Get the relative path for a post's file (e.g. '2024/post-123-xK4mQ9p.html').
 	 */
-	private function get_post_relative_path( $wp_post ) {
+	private function get_post_relative_path( $wp_post, $ext = 'html' ) {
+		$prefix = $wp_post->post_type;
+		if ( 'page' === $wp_post->post_type ) {
+			return 'pages/' . $this->filename( $prefix . '-' . $wp_post->ID, $ext );
+		}
 		$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
-		return $year . '/' . $this->filename( 'post-' . $wp_post->ID );
+		return $year . '/' . $this->filename( $prefix . '-' . $wp_post->ID, $ext );
 	}
 
 	/**
-	 * Get the absolute file path for a post's HTML file.
+	 * Get the absolute file path for a post's file.
 	 */
-	private function get_post_file_path( $wp_post ) {
-		return $this->output_dir . '/' . $this->get_post_relative_path( $wp_post );
+	private function get_post_file_path( $wp_post, $ext = 'html' ) {
+		return $this->output_dir . '/' . $this->get_post_relative_path( $wp_post, $ext );
 	}
 
 	/**
 	 * Get the main index filename.
 	 */
-	public function get_index_filename() {
-		return $this->filename( 'archive' );
+	public function get_index_filename( $ext = 'html' ) {
+		return $this->filename( 'archive', $ext );
 	}
 
 	/**
@@ -70,48 +94,79 @@ class Static_Archive_Generator {
 	 *
 	 * @return array { asc: string, desc: string }
 	 */
-	private function get_year_archive_filenames() {
+	private function get_year_archive_filenames( $ext = 'html' ) {
 		return array(
-			'asc'  => $this->filename( 'archive' ),
-			'desc' => $this->filename( 'latest' ),
+			'asc'  => $this->filename( 'archive', $ext ),
+			'desc' => $this->filename( 'latest', $ext ),
 		);
 	}
 
 	/**
-	 * Generate a single post's HTML file.
+	 * Get the post types that use year-based directory structure (everything except page).
+	 */
+	private function get_dated_post_types() {
+		return array_values( array_diff( $this->post_types, array( 'page' ) ) );
+	}
+
+	/**
+	 * Write a file, returning 'created', 'updated', or 'unchanged'.
+	 */
+	private function write_file( $file, $content, $mtime = 0 ) {
+		$existed = file_exists( $file );
+
+		if ( $existed && file_get_contents( $file ) === $content ) {
+			if ( $mtime ) {
+				touch( $file, $mtime );
+			}
+			return 'unchanged';
+		}
+
+		wp_mkdir_p( dirname( $file ) );
+		file_put_contents( $file, $content );
+		if ( $mtime ) {
+			touch( $file, $mtime );
+		}
+		return $existed ? 'updated' : 'created';
+	}
+
+	/**
+	 * Generate a single post's files.
 	 *
 	 * @param int $post_id
 	 * @return string Status: 'created', 'updated', 'unchanged', or 'skipped'.
 	 */
 	public function generate_post( $post_id ) {
 		$wp_post = get_post( $post_id );
-		if ( ! $wp_post || 'publish' !== $wp_post->post_status || 'post' !== $wp_post->post_type ) {
+		if ( ! $wp_post || 'publish' !== $wp_post->post_status || ! in_array( $wp_post->post_type, $this->post_types, true ) ) {
 			return 'skipped';
 		}
 
-		$file    = $this->get_post_file_path( $wp_post );
-		$existed = file_exists( $file );
+		$mtime = strtotime( $wp_post->post_modified );
 
-		// Get adjacent posts for navigation.
-		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
-		$original_post = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
-		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
-		$GLOBALS['post'] = $wp_post;
-		setup_postdata( $wp_post );
+		// Get adjacent posts for navigation (only for post type).
+		$prev_link = '';
+		$next_link = '';
+		if ( 'post' === $wp_post->post_type ) {
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
+			$original_post = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
+			$GLOBALS['post'] = $wp_post;
+			setup_postdata( $wp_post );
 
-		$prev = get_previous_post();
-		$next = get_next_post();
+			$prev = get_previous_post();
+			$next = get_next_post();
 
-		$prev_nav_title = $prev ? $this->get_display_title( $prev ) : '';
-		$next_nav_title = $next ? $this->get_display_title( $next ) : '';
+			$prev_nav_title = $prev ? $this->get_display_title( $prev ) : '';
+			$next_nav_title = $next ? $this->get_display_title( $next ) : '';
 
-		$prev_link = $prev ? '<a href="../' . esc_attr( $this->get_post_relative_path( $prev ) ) . '">&larr; ' . esc_html( $prev_nav_title ) . '</a>' : '';
-		$next_link = $next ? '<a href="../' . esc_attr( $this->get_post_relative_path( $next ) ) . '">' . esc_html( $next_nav_title ) . ' &rarr;</a>' : '';
+			$prev_link = $prev ? '<a href="../' . esc_attr( $this->get_post_relative_path( $prev ) ) . '">&larr; ' . esc_html( $prev_nav_title ) . '</a>' : '';
+			$next_link = $next ? '<a href="../' . esc_attr( $this->get_post_relative_path( $next ) ) . '">' . esc_html( $next_nav_title ) . ' &rarr;</a>' : '';
 
-		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restoring original value.
-		$GLOBALS['post'] = $original_post;
-		if ( $original_post ) {
-			setup_postdata( $original_post );
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restoring original value.
+			$GLOBALS['post'] = $original_post;
+			if ( $original_post ) {
+				setup_postdata( $original_post );
+			}
 		}
 
 		// Render content.
@@ -129,40 +184,50 @@ class Static_Archive_Generator {
 		$lang             = $this->lang;
 		$index_url        = '../' . $this->get_index_filename();
 		$style_url        = '../style.css';
-		$year_archive_url = $this->filename( 'latest' );
+		$year_archive_url = 'post' === $wp_post->post_type ? $this->filename( 'latest' ) : '../' . $this->get_index_filename();
 
-		ob_start();
-		include dirname( __DIR__ ) . '/templates/post.php';
-		$html = ob_get_clean();
+		$status = 'unchanged';
 
-		// Check if content changed.
-		if ( $existed && file_get_contents( $file ) === $html ) {
-			touch( $file, strtotime( $wp_post->post_modified ) );
-			return 'unchanged';
+		if ( $this->should_output_html() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/post.php';
+			$result = $this->write_file( $this->get_post_file_path( $wp_post ), ob_get_clean(), $mtime );
+			if ( 'unchanged' !== $result ) {
+				$status = $result;
+			}
 		}
 
-		wp_mkdir_p( dirname( $file ) );
-		file_put_contents( $file, $html );
-		touch( $file, strtotime( $wp_post->post_modified ) );
-		return $existed ? 'updated' : 'created';
+		if ( $this->should_output_markdown() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/post.md.php';
+			$result = $this->write_file( $this->get_post_file_path( $wp_post, 'md' ), ob_get_clean(), $mtime );
+			if ( 'unchanged' !== $result ) {
+				$status = $result;
+			}
+		}
+
+		return $status;
 	}
 
 	/**
-	 * Delete the HTML file for a post.
+	 * Delete the files for a post.
 	 */
-	public function delete_post_html( $post_id ) {
+	public function delete_post_files( $post_id ) {
 		$wp_post = get_post( $post_id );
 		if ( ! $wp_post ) {
 			return false;
 		}
 
-		$file = $this->get_post_file_path( $wp_post );
-		if ( file_exists( $file ) ) {
-			unlink( $file );
-			return true;
+		$deleted = false;
+		foreach ( array( 'html', 'md' ) as $ext ) {
+			$file = $this->get_post_file_path( $wp_post, $ext );
+			if ( file_exists( $file ) ) {
+				wp_delete_file( $file );
+				$deleted = true;
+			}
 		}
 
-		return false;
+		return $deleted;
 	}
 
 	/**
@@ -171,7 +236,7 @@ class Static_Archive_Generator {
 	public function generate_index() {
 		$posts_query = new WP_Query(
 			array(
-				'post_type'      => 'post',
+				'post_type'      => $this->post_types,
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'orderby'        => 'date',
@@ -181,10 +246,20 @@ class Static_Archive_Generator {
 		);
 
 		$years   = array();
+		$pages   = array();
 		$authors = array();
 		foreach ( $posts_query->posts as $wp_post ) {
-			$year   = gmdate( 'Y', strtotime( $wp_post->post_date ) );
 			$author = get_the_author_meta( 'display_name', $wp_post->post_author );
+
+			if ( 'page' === $wp_post->post_type ) {
+				$pages[] = array(
+					'title' => $this->get_display_title( $wp_post ),
+					'href'  => $this->get_post_relative_path( $wp_post ),
+				);
+				continue;
+			}
+
+			$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
 
 			$years[ $year ][] = array(
 				'title'    => $this->get_display_title( $wp_post ),
@@ -197,10 +272,17 @@ class Static_Archive_Generator {
 			$authors[ $author ] = true;
 		}
 
+		$dated_posts = array_filter(
+			$posts_query->posts,
+			function ( $p ) {
+				return 'page' !== $p->post_type;
+			}
+		);
+
 		$stats = array(
-			'total'      => count( $posts_query->posts ),
-			'date_first' => $posts_query->posts ? date_i18n( 'j. F Y', strtotime( end( $posts_query->posts )->post_date ) ) : '',
-			'date_last'  => $posts_query->posts ? date_i18n( 'j. F Y', strtotime( $posts_query->posts[0]->post_date ) ) : '',
+			'total'      => count( $dated_posts ),
+			'date_first' => $dated_posts ? date_i18n( 'j. F Y', strtotime( end( $dated_posts )->post_date ) ) : '',
+			'date_last'  => $dated_posts ? date_i18n( 'j. F Y', strtotime( reset( $dated_posts )->post_date ) ) : '',
 			'authors'    => array_keys( $authors ),
 		);
 
@@ -210,20 +292,31 @@ class Static_Archive_Generator {
 		$lang             = $this->lang;
 		$style_url        = 'style.css';
 
-		ob_start();
-		include dirname( __DIR__ ) . '/templates/index.php';
-		$html = ob_get_clean();
+		if ( $this->should_output_html() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/index.php';
+			file_put_contents( $this->output_dir . '/' . $this->get_index_filename(), ob_get_clean() );
+		}
 
-		file_put_contents( $this->output_dir . '/' . $this->get_index_filename(), $html );
+		if ( $this->should_output_markdown() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/index.md.php';
+			file_put_contents( $this->output_dir . '/' . $this->get_index_filename( 'md' ), ob_get_clean() );
+		}
 	}
 
 	/**
 	 * Generate year archive pages for all years that have posts.
 	 */
 	public function generate_year_archives() {
+		$dated_types = $this->get_dated_post_types();
+		if ( empty( $dated_types ) ) {
+			return;
+		}
+
 		$posts_query = new WP_Query(
 			array(
-				'post_type'      => 'post',
+				'post_type'      => $dated_types,
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'orderby'        => 'date',
@@ -247,10 +340,12 @@ class Static_Archive_Generator {
 	 * Generate both ASC and DESC year archive pages.
 	 */
 	public function generate_year_archive( $year, $year_posts = null ) {
+		$dated_types = $this->get_dated_post_types();
+
 		if ( null === $year_posts ) {
 			$year_posts = get_posts(
 				array(
-					'post_type'      => 'post',
+					'post_type'      => $dated_types,
 					'post_status'    => 'publish',
 					'posts_per_page' => -1,
 					'orderby'        => 'date',
@@ -278,7 +373,7 @@ class Static_Archive_Generator {
 				'date_iso' => gmdate( 'Y-m-d', strtotime( $wp_post->post_date ) ),
 				'author'   => get_the_author_meta( 'display_name', $wp_post->post_author ),
 				'content'  => $content,
-				'href'     => $this->filename( 'post-' . $wp_post->ID ),
+				'href'     => $this->filename( $wp_post->post_type . '-' . $wp_post->ID ),
 			);
 		}
 
@@ -294,36 +389,71 @@ class Static_Archive_Generator {
 		// ASC version (oldest first).
 		$order     = 'asc';
 		$other_url = $filenames['desc'];
-		ob_start();
-		include dirname( __DIR__ ) . '/templates/year.php';
-		file_put_contents( $dir . '/' . $filenames['asc'], ob_get_clean() );
+
+		if ( $this->should_output_html() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/year.php';
+			file_put_contents( $dir . '/' . $filenames['asc'], ob_get_clean() );
+		}
+
+		if ( $this->should_output_markdown() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/year.md.php';
+			$md_filenames = $this->get_year_archive_filenames( 'md' );
+			file_put_contents( $dir . '/' . $md_filenames['asc'], ob_get_clean() );
+		}
 
 		// DESC version (newest first).
 		$order     = 'desc';
 		$other_url = $filenames['asc'];
 		$entries   = array_reverse( $entries );
-		ob_start();
-		include dirname( __DIR__ ) . '/templates/year.php';
-		file_put_contents( $dir . '/' . $filenames['desc'], ob_get_clean() );
+
+		if ( $this->should_output_html() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/year.php';
+			file_put_contents( $dir . '/' . $filenames['desc'], ob_get_clean() );
+		}
+
+		if ( $this->should_output_markdown() ) {
+			ob_start();
+			include dirname( __DIR__ ) . '/templates/year.md.php';
+			$md_filenames = $this->get_year_archive_filenames( 'md' );
+			file_put_contents( $dir . '/' . $md_filenames['desc'], ob_get_clean() );
+		}
 	}
 
 	/**
 	 * Delete all generated archive files. Returns the number of files deleted.
 	 */
 	public function delete_all() {
-		$files = array(
-			$this->output_dir . '/archive' . $this->suffix . '.html',
-			$this->output_dir . '/style.css',
-		);
+		$files = array();
 
+		foreach ( array( 'html', 'md' ) as $ext ) {
+			$files[] = $this->output_dir . '/archive' . $this->suffix . '.' . $ext;
+		}
+		$files[] = $this->output_dir . '/style.css';
+
+		// Year directories.
 		foreach ( glob( $this->output_dir . '/[0-9][0-9][0-9][0-9]' ) as $year_dir ) {
 			if ( ! is_dir( $year_dir ) ) {
 				continue;
 			}
-			$files[] = $year_dir . '/archive' . $this->suffix . '.html';
-			$files[] = $year_dir . '/latest' . $this->suffix . '.html';
-			foreach ( glob( $year_dir . '/post-*' . $this->suffix . '.html' ) as $post_file ) {
-				$files[] = $post_file;
+			foreach ( array( 'html', 'md' ) as $ext ) {
+				$files[] = $year_dir . '/archive' . $this->suffix . '.' . $ext;
+				$files[] = $year_dir . '/latest' . $this->suffix . '.' . $ext;
+				foreach ( glob( $year_dir . '/*-*' . $this->suffix . '.' . $ext ) as $post_file ) {
+					$files[] = $post_file;
+				}
+			}
+		}
+
+		// Pages directory.
+		$pages_dir = $this->output_dir . '/pages';
+		if ( is_dir( $pages_dir ) ) {
+			foreach ( array( 'html', 'md' ) as $ext ) {
+				foreach ( glob( $pages_dir . '/page-*' . $this->suffix . '.' . $ext ) as $page_file ) {
+					$files[] = $page_file;
+				}
 			}
 		}
 
@@ -356,7 +486,7 @@ class Static_Archive_Generator {
 
 		$post_ids = get_posts(
 			array(
-				'post_type'      => 'post',
+				'post_type'      => $this->post_types,
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
@@ -396,7 +526,7 @@ class Static_Archive_Generator {
 	public function generate_batch( $offset, $limit = 50 ) {
 		$post_ids = get_posts(
 			array(
-				'post_type'      => 'post',
+				'post_type'      => $this->post_types,
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'fields'         => 'ids',
@@ -465,7 +595,7 @@ class Static_Archive_Generator {
 	public function verify() {
 		$all_posts = get_posts(
 			array(
-				'post_type'      => 'post',
+				'post_type'      => $this->post_types,
 				'post_status'    => 'publish',
 				'posts_per_page' => -1,
 				'orderby'        => 'date',
@@ -478,34 +608,47 @@ class Static_Archive_Generator {
 		$missing        = array();
 		$outdated       = array();
 
-		foreach ( $all_posts as $wp_post ) {
-			$file                        = $this->get_post_file_path( $wp_post );
-			$rel_path                    = $this->get_post_relative_path( $wp_post );
-			$expected_files[ $rel_path ] = true;
+		// Determine which extensions to check.
+		$exts = array();
+		if ( $this->should_output_html() ) {
+			$exts[] = 'html';
+		}
+		if ( $this->should_output_markdown() ) {
+			$exts[] = 'md';
+		}
 
-			if ( ! file_exists( $file ) ) {
-				$missing[] = array(
-					'id'    => $wp_post->ID,
-					'slug'  => $wp_post->post_name,
-					'title' => $wp_post->post_title,
-				);
-			} elseif ( filemtime( $file ) < strtotime( $wp_post->post_modified ) ) {
-				$outdated[] = array(
-					'id'    => $wp_post->ID,
-					'slug'  => $wp_post->post_name,
-					'title' => $wp_post->post_title,
-				);
+		foreach ( $all_posts as $wp_post ) {
+			foreach ( $exts as $ext ) {
+				$file                        = $this->get_post_file_path( $wp_post, $ext );
+				$rel_path                    = $this->get_post_relative_path( $wp_post, $ext );
+				$expected_files[ $rel_path ] = true;
+
+				if ( ! file_exists( $file ) ) {
+					$missing[] = array(
+						'id'    => $wp_post->ID,
+						'slug'  => $wp_post->post_name,
+						'title' => $wp_post->post_title,
+					);
+				} elseif ( filemtime( $file ) < strtotime( $wp_post->post_modified ) ) {
+					$outdated[] = array(
+						'id'    => $wp_post->ID,
+						'slug'  => $wp_post->post_name,
+						'title' => $wp_post->post_title,
+					);
+				}
 			}
 		}
 
-		// Find orphaned post-*.html files in year directories.
+		// Find orphaned files in year directories and pages directory.
 		$orphaned = array();
-		foreach ( glob( $this->output_dir . '/*/post-*.html' ) as $file ) {
-			$year     = basename( dirname( $file ) );
-			$basename = basename( $file );
-			$rel_path = $year . '/' . $basename;
-			if ( ! isset( $expected_files[ $rel_path ] ) ) {
-				$orphaned[] = $rel_path;
+		foreach ( array( 'html', 'md' ) as $ext ) {
+			foreach ( glob( $this->output_dir . '/*/*-*' . $this->suffix . '.' . $ext ) as $file ) {
+				$dir_name = basename( dirname( $file ) );
+				$basename = basename( $file );
+				$rel_path = $dir_name . '/' . $basename;
+				if ( ! isset( $expected_files[ $rel_path ] ) ) {
+					$orphaned[] = $rel_path;
+				}
 			}
 		}
 
@@ -544,13 +687,13 @@ class Static_Archive_Generator {
 			. preg_quote( wp_parse_url( $this->upload_baseurl, PHP_URL_PATH ), '/' ) . '\//';
 		$content = preg_replace( $pattern, '../', $content );
 
-		// Rewrite internal post permalinks to post-{id}.html files.
+		// Rewrite internal post permalinks to archive files.
 		$site_url = preg_quote( trailingslashit( home_url() ), '/' );
 		$content  = preg_replace_callback(
 			'/href=["\']' . $site_url . '([a-z0-9-]+)\/?["\']/',
 			function ( $matches ) {
 				$slug    = $matches[1];
-				$wp_post = get_page_by_path( $slug, OBJECT, 'post' );
+				$wp_post = get_page_by_path( $slug, OBJECT, $this->post_types );
 				if ( $wp_post && 'publish' === $wp_post->post_status ) {
 					return 'href="../' . $this->get_post_relative_path( $wp_post ) . '"';
 				}

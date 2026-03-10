@@ -37,48 +37,55 @@ class Static_Archive {
 	}
 
 	/**
-	 * When a post is published or updated, regenerate its HTML.
+	 * When a post is published or updated, regenerate its files.
 	 */
 	public function on_post_status_change( $new_status, $old_status, $wp_post ) {
-		if ( 'post' !== $wp_post->post_type ) {
+		$post_types = Static_Archive_Generator::get_post_types();
+		if ( ! in_array( $wp_post->post_type, $post_types, true ) ) {
 			return;
 		}
 
 		$generator = new Static_Archive_Generator();
-
-		$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
 
 		if ( 'publish' === $new_status ) {
 			$generator->copy_stylesheet();
 			$generator->generate_post( $wp_post->ID );
 			$generator->generate_index();
-			$generator->generate_year_archive( $year );
+			if ( 'page' !== $wp_post->post_type ) {
+				$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
+				$generator->generate_year_archive( $year );
+			}
 		} elseif ( 'publish' === $old_status && 'publish' !== $new_status ) {
-			// Post was unpublished.
-			$generator->delete_post_html( $wp_post->ID );
+			$generator->delete_post_files( $wp_post->ID );
 			$generator->generate_index();
-			$generator->generate_year_archive( $year );
+			if ( 'page' !== $wp_post->post_type ) {
+				$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
+				$generator->generate_year_archive( $year );
+			}
 		}
 	}
 
 	/**
-	 * When a post is deleted, remove its HTML file.
+	 * When a post is deleted, remove its files.
 	 */
 	public function on_post_delete( $post_id ) {
-		$wp_post = get_post( $post_id );
-		if ( ! $wp_post || 'post' !== $wp_post->post_type ) {
+		$wp_post    = get_post( $post_id );
+		$post_types = Static_Archive_Generator::get_post_types();
+		if ( ! $wp_post || ! in_array( $wp_post->post_type, $post_types, true ) ) {
 			return;
 		}
 
 		$generator = new Static_Archive_Generator();
-		$generator->delete_post_html( $post_id );
+		$generator->delete_post_files( $post_id );
 		$generator->generate_index();
-		$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
-		$generator->generate_year_archive( $year );
+		if ( 'page' !== $wp_post->post_type ) {
+			$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
+			$generator->generate_year_archive( $year );
+		}
 	}
 
 	/**
-	 * Add the admin page under Settings.
+	 * Add the admin page under Tools.
 	 */
 	public function add_admin_page() {
 		add_management_page(
@@ -91,9 +98,6 @@ class Static_Archive {
 	}
 
 	/**
-	 * Render the admin page.
-	 */
-	/**
 	 * Handle saving settings.
 	 */
 	private function maybe_save_settings() {
@@ -105,21 +109,52 @@ class Static_Archive {
 		$new_suffix = isset( $_POST['static_archive_filename_suffix'] )
 			? sanitize_text_field( wp_unslash( $_POST['static_archive_filename_suffix'] ) )
 			: '';
-		// Ensure it starts with - if non-empty.
 		if ( $new_suffix && '-' !== $new_suffix[0] ) {
 			$new_suffix = '-' . $new_suffix;
 		}
 		update_option( 'static_archive_filename_suffix', $new_suffix );
+
+		// Post types.
+		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- Each element is sanitized via sanitize_key() below.
+		$raw_types      = isset( $_POST['static_archive_post_types'] ) ? wp_unslash( $_POST['static_archive_post_types'] ) : array();
+		$all_post_types = get_post_types( array( 'public' => true ), 'names' );
+		$selected_types = array();
+		if ( is_array( $raw_types ) ) {
+			foreach ( $raw_types as $type ) {
+				$type = sanitize_key( $type );
+				if ( isset( $all_post_types[ $type ] ) && 'attachment' !== $type ) {
+					$selected_types[] = $type;
+				}
+			}
+		}
+		if ( empty( $selected_types ) ) {
+			$selected_types = array( 'post', 'page' );
+		}
+		update_option( 'static_archive_post_types', $selected_types );
+
+		// Output format from checkboxes.
+		$html_on = ! empty( $_POST['static_archive_format_html'] );
+		$md_on   = ! empty( $_POST['static_archive_format_markdown'] );
+		if ( $html_on && $md_on ) {
+			$format = 'both';
+		} elseif ( $md_on ) {
+			$format = 'markdown';
+		} else {
+			$format = 'html';
+		}
+		update_option( 'static_archive_output_format', $format );
 	}
 
 	public function render_admin_page() {
 		$this->maybe_save_settings();
 
-		$generator  = new Static_Archive_Generator();
-		$output_dir = $generator->get_output_dir();
-		$suffix     = Static_Archive_Generator::get_filename_suffix();
-		$upload_dir = wp_get_upload_dir();
-		$index_url  = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
+		$generator     = new Static_Archive_Generator();
+		$output_dir    = $generator->get_output_dir();
+		$suffix        = Static_Archive_Generator::get_filename_suffix();
+		$upload_dir    = wp_get_upload_dir();
+		$index_url     = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
+		$post_types    = Static_Archive_Generator::get_post_types();
+		$output_format = get_option( 'static_archive_output_format', 'html' );
 		?>
 		<style>
 			.sa-wrap { max-width: 800px; }
@@ -230,6 +265,15 @@ class Static_Archive {
 				font-size: 13px;
 				color: #757575;
 			}
+			.sa-checkbox-list {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 0.25rem 1.5rem;
+				margin: 0.5rem 0;
+			}
+			.sa-checkbox-list label {
+				font-size: 14px;
+			}
 		</style>
 
 		<div class="wrap sa-wrap">
@@ -271,7 +315,31 @@ class Static_Archive {
 				<h2>Settings</h2>
 				<form method="post">
 					<?php wp_nonce_field( 'static_archive_settings' ); ?>
-					<label for="static_archive_filename_suffix"><strong>Filename suffix</strong></label>
+
+					<p><strong>Post types</strong></p>
+					<div class="sa-checkbox-list">
+						<?php
+						$all_types = get_post_types( array( 'public' => true ), 'objects' );
+						foreach ( $all_types as $type_obj ) :
+							if ( 'attachment' === $type_obj->name ) {
+								continue;
+							}
+							$checked = in_array( $type_obj->name, $post_types, true );
+							?>
+							<label>
+								<input type="checkbox" name="static_archive_post_types[]" value="<?php echo esc_attr( $type_obj->name ); ?>" <?php checked( $checked ); ?>>
+								<?php echo esc_html( $type_obj->labels->name ); ?>
+							</label>
+						<?php endforeach; ?>
+					</div>
+
+					<p style="margin-top: 1rem;"><strong>Output format</strong></p>
+					<div class="sa-checkbox-list">
+						<label><input type="checkbox" name="static_archive_format_html" value="1" <?php checked( in_array( $output_format, array( 'html', 'both' ), true ) ); ?>> HTML</label>
+						<label><input type="checkbox" name="static_archive_format_markdown" value="1" <?php checked( in_array( $output_format, array( 'markdown', 'both' ), true ) ); ?>> Markdown</label>
+					</div>
+
+					<p style="margin-top: 1rem;"><strong>Filename suffix</strong></p>
 					<p style="margin: 0.5rem 0;">
 						<input type="text" id="static_archive_filename_suffix" name="static_archive_filename_suffix" value="<?php echo esc_attr( $suffix ); ?>" class="regular-text" placeholder="e.g. -xK4mQ9p">
 					</p>
@@ -316,7 +384,7 @@ class Static_Archive {
 							return;
 						}
 						var r = data.data;
-						var html = stat(r.total_posts, 'posts');
+						var html = stat(r.total_posts, 'entries');
 						html += stat(r.total_archived, 'archived', r.total_archived === r.total_posts ? 'sa-ok' : '');
 						if (r.missing.length) html += stat(r.missing.length, 'missing', 'sa-error');
 						if (r.outdated.length) html += stat(r.outdated.length, 'outdated', 'sa-warn');

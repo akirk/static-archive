@@ -21,6 +21,18 @@
 			<span><?php echo esc_html( implode( ', ', $stats['authors'] ) ); ?></span>
 		</div>
 		<?php endif; ?>
+		<?php if ( ! empty( $pages ) ) : ?>
+		<section class="pages-group">
+			<h2>Pages</h2>
+			<ul class="post-list">
+				<?php foreach ( $pages as $entry ) : ?>
+				<li>
+					<a href="<?php echo esc_attr( $entry['href'] ); ?>"><?php echo esc_html( $entry['title'] ); ?></a>
+				</li>
+				<?php endforeach; ?>
+			</ul>
+		</section>
+		<?php endif; ?>
 		<nav class="year-nav">
 			<?php foreach ( array_keys( $years ) as $y ) : ?>
 			<a href="#year-<?php echo esc_attr( $y ); ?>"><?php echo esc_html( $y ); ?></a>

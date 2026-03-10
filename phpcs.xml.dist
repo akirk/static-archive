@@ -25,4 +25,9 @@
 		<!-- Not adding boilerplate doc comments to every file/class/function. -->
 		<exclude name="Squiz.Commenting"/>
 	</rule>
+
+	<!-- Markdown templates must not be indented — output formatting matters. -->
+	<rule ref="Generic.WhiteSpace.ScopeIndent">
+		<exclude-pattern>templates/*.md.php</exclude-pattern>
+	</rule>
 </ruleset>
