@@ -78,6 +78,25 @@ On multisite, add `--url=yoursite.example.com` to target a specific site.
 2. Activate the plugin on the site(s) you want to archive
 3. Go to **Tools → Static Archive** and click **Generate All**
 
+## How is this different from other static site plugins?
+
+There are several WordPress plugins that export sites to static HTML, but they solve a different problem:
+
+| Plugin | What it does | How Static Archive differs |
+|--------|-------------|--------------------------|
+| [Simply Static](https://wordpress.org/plugins/simply-static/) | Crawls the live site and exports a full themed mirror with all CSS/JS | Exports to a separate location or ZIP. Much heavier output, not designed for portable backups within the uploads directory. |
+| [Export WP Pages to Static HTML](https://wordpress.org/plugins/export-wp-page-to-static-html/) | Manual page-by-page export with bundled assets | Not designed for ongoing automatic archiving of all posts. |
+| [WP2Static](https://github.com/leonstafford/wp2static) | Crawls site and deploys to S3, GitHub Pages, etc. | Focused on replacing WordPress with a static site, not creating a portable backup alongside it. |
+| [Serve Static](https://wordpress.org/plugins/serve_static/) | Generates cached static copies for performance | A performance cache, not an archiving tool. |
+
+Static Archive is purpose-built for **archiving content portably within your existing WordPress install**, not for converting your site to static hosting. Key differences:
+
+- HTML files live inside the uploads directory alongside images, with relative paths — the whole directory is one self-contained, backupable unit
+- Automatic archiving on publish, no manual export step
+- Minimal clean HTML with its own lightweight CSS, not a themed mirror
+- Verify/audit tool to detect missing, outdated, or orphaned files
+- Non-guessable filenames for private sites
+
 ## Requirements
 
 - WordPress 5.0+
