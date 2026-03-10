@@ -627,6 +627,7 @@ class Static_Archive_Generator {
 			$exts[] = 'md';
 		}
 
+		$missing_capped = false;
 		foreach ( $all_posts as $wp_post ) {
 			$post_missing  = false;
 			$post_outdated = false;
@@ -648,6 +649,10 @@ class Static_Archive_Generator {
 			);
 			if ( $post_missing ) {
 				$missing[] = $entry;
+				if ( count( $missing ) > 10 ) {
+					$missing_capped = true;
+					break;
+				}
 			} elseif ( $post_outdated ) {
 				$outdated[] = $entry;
 			}
@@ -670,6 +675,7 @@ class Static_Archive_Generator {
 
 		return array(
 			'missing'        => $missing,
+			'missing_capped' => $missing_capped,
 			'orphaned'       => $orphaned,
 			'outdated'       => $outdated,
 			'total_posts'    => count( $all_posts ),
