@@ -41,6 +41,13 @@ a:hover {
 	color: #0055a4;
 }
 
+.site-description {
+	margin: 0.2rem 0 0;
+	font-size: 0.9rem;
+	color: #666;
+	font-weight: normal;
+}
+
 main {
 	max-width: 56rem;
 	margin: 0 auto;
@@ -153,6 +160,16 @@ article .wp-block-gallery .wp-block-image img {
 }
 
 /* Index page styles */
+.archive-stats {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.25rem 1.5rem;
+	font-size: 0.85rem;
+	color: #666;
+	margin-bottom: 1.5rem;
+}
+
+
 .post-list {
 	list-style: none;
 	padding: 0;

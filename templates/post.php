@@ -9,6 +9,9 @@
 <body>
 	<header class="site-header">
 		<a href="<?php echo esc_attr( $index_url ); ?>"><?php echo esc_html( $blog_name ); ?></a>
+		<?php if ( $blog_description ) : ?>
+		<p class="site-description"><?php echo esc_html( $blog_description ); ?></p>
+		<?php endif; ?>
 	</header>
 	<main>
 		<article>

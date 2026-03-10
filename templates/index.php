@@ -9,8 +9,18 @@
 <body>
 	<header class="site-header">
 		<a href="#"><?php echo esc_html( $blog_name ); ?></a>
+		<?php if ( $blog_description ) : ?>
+		<p class="site-description"><?php echo esc_html( $blog_description ); ?></p>
+		<?php endif; ?>
 	</header>
 	<main>
+		<?php if ( $stats['total'] ) : ?>
+		<div class="archive-stats">
+			<span><?php echo esc_html( $stats['total'] ); ?> posts</span>
+			<span><?php echo esc_html( $stats['date_first'] ); ?> – <?php echo esc_html( $stats['date_last'] ); ?></span>
+			<span><?php echo esc_html( implode( ', ', $stats['authors'] ) ); ?></span>
+		</div>
+		<?php endif; ?>
 		<nav class="year-nav">
 			<?php foreach ( array_keys( $years ) as $y ) : ?>
 			<a href="#year-<?php echo esc_attr( $y ); ?>"><?php echo esc_html( $y ); ?></a>

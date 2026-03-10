@@ -5,6 +5,7 @@ class Static_Archive_Generator {
 	private $output_dir;
 	private $upload_baseurl;
 	private $blog_name;
+	private $blog_description;
 	private $lang;
 	private $suffix;
 
@@ -12,7 +13,8 @@ class Static_Archive_Generator {
 		$upload_dir           = wp_get_upload_dir();
 		$this->output_dir     = $upload_dir['basedir'];
 		$this->upload_baseurl = $upload_dir['baseurl'];
-		$this->blog_name      = get_bloginfo( 'name' );
+		$this->blog_name        = get_bloginfo( 'name' );
+		$this->blog_description = get_bloginfo( 'description' );
 		$this->lang           = substr( get_locale(), 0, 2 );
 		$this->suffix         = self::get_filename_suffix();
 	}
@@ -119,8 +121,9 @@ class Static_Archive_Generator {
 		$post_date     = date_i18n( get_option( 'date_format' ), strtotime( $post->post_date ) );
 		$post_date_iso = gmdate( 'Y-m-d', strtotime( $post->post_date ) );
 		$post_author   = get_the_author_meta( 'display_name', $post->post_author );
-		$blog_name     = $this->blog_name;
-		$lang          = $this->lang;
+		$blog_name        = $this->blog_name;
+		$blog_description = $this->blog_description;
+		$lang             = $this->lang;
 		$index_url         = '../' . $this->get_index_filename();
 		$style_url         = '../style.css';
 		$year_archive_url  = $this->filename( 'latest' );
@@ -170,23 +173,35 @@ class Static_Archive_Generator {
 			'no_found_rows'  => true,
 		) );
 
-		$years = array();
+		$years   = array();
+		$authors = array();
 		foreach ( $posts_query->posts as $post ) {
-			$year = date( 'Y', strtotime( $post->post_date ) );
+			$year   = date( 'Y', strtotime( $post->post_date ) );
+			$author = get_the_author_meta( 'display_name', $post->post_author );
 
 			$years[ $year ][] = array(
 				'title'    => $this->get_display_title( $post ),
 				'href'     => $this->get_post_relative_path( $post ),
 				'date'     => date_i18n( 'j. F', strtotime( $post->post_date ) ),
 				'date_iso' => gmdate( 'Y-m-d', strtotime( $post->post_date ) ),
-				'author'   => get_the_author_meta( 'display_name', $post->post_author ),
+				'author'   => $author,
 			);
+
+			$authors[ $author ] = true;
 		}
 
+		$stats = array(
+			'total'      => count( $posts_query->posts ),
+			'date_first' => $posts_query->posts ? date_i18n( 'j. F Y', strtotime( end( $posts_query->posts )->post_date ) ) : '',
+			'date_last'  => $posts_query->posts ? date_i18n( 'j. F Y', strtotime( $posts_query->posts[0]->post_date ) ) : '',
+			'authors'    => array_keys( $authors ),
+		);
+
 		$year_filenames = $this->get_year_archive_filenames();
-		$blog_name      = $this->blog_name;
-		$lang           = $this->lang;
-		$style_url      = 'style.css';
+		$blog_name        = $this->blog_name;
+		$blog_description = $this->blog_description;
+		$lang             = $this->lang;
+		$style_url        = 'style.css';
 
 		ob_start();
 		include dirname( __DIR__ ) . '/templates/index.php';
@@ -257,9 +272,10 @@ class Static_Archive_Generator {
 		}
 
 		$filenames = $this->get_year_archive_filenames();
-		$blog_name = $this->blog_name;
-		$lang      = $this->lang;
-		$index_url = '../' . $this->get_index_filename();
+		$blog_name        = $this->blog_name;
+		$blog_description = $this->blog_description;
+		$lang             = $this->lang;
+		$index_url        = '../' . $this->get_index_filename();
 		$style_url = '../style.css';
 		$dir       = $this->output_dir . '/' . $year;
 		wp_mkdir_p( $dir );
