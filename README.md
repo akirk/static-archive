@@ -47,6 +47,8 @@ All generated filenames include a configurable random suffix (e.g. `-keT1KxmG`) 
 
 ## Admin UI
 
+<img width="1700" height="1792" alt="Screenshot 2026-03-10 at 15 04 13" src="https://github.com/user-attachments/assets/133d75b7-5bda-4d1f-a5c8-98930b3300ce" />
+
 Go to **Tools → Static Archive** to:
 
 - See archive status (total entries, archived, missing, outdated, orphaned)
