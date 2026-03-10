@@ -102,15 +102,19 @@ class Static_Archive {
 	 */
 	private function maybe_save_settings() {
 		if ( ! isset( $_POST['static_archive_save_settings'] ) ) {
-			return;
+			return false;
 		}
 		check_admin_referer( 'static_archive_settings' );
 
+		$old_suffix = Static_Archive_Generator::get_filename_suffix();
 		$new_suffix = isset( $_POST['static_archive_filename_suffix'] )
 			? sanitize_text_field( wp_unslash( $_POST['static_archive_filename_suffix'] ) )
 			: '';
 		if ( $new_suffix && '-' !== $new_suffix[0] ) {
 			$new_suffix = '-' . $new_suffix;
+		}
+		if ( $new_suffix !== $old_suffix && ! empty( $_POST['static_archive_delete_old_suffix'] ) ) {
+			( new Static_Archive_Generator() )->delete_all();
 		}
 		update_option( 'static_archive_filename_suffix', $new_suffix );
 
@@ -347,6 +351,9 @@ class Static_Archive {
 						All generated files will be named like post-123<?php echo esc_html( $suffix ); ?>.html<br>
 						Leave empty for plain filenames. Changing this requires a full regeneration.
 					</p>
+					<p id="sa-delete-old-suffix-row" style="display:none; margin: 0.5rem 0;">
+						<label><input type="checkbox" name="static_archive_delete_old_suffix" value="1" checked> Delete existing archive files with the old suffix</label>
+					</p>
 					<p style="margin-top: 1rem;">
 						<input type="submit" name="static_archive_save_settings" class="button" value="Save Settings">
 					</p>
@@ -356,6 +363,15 @@ class Static_Archive {
 
 		<script>
 		(function() {
+			var suffixInput = document.getElementById('static_archive_filename_suffix');
+			var deleteOldRow = document.getElementById('sa-delete-old-suffix-row');
+			var originalSuffix = suffixInput ? suffixInput.value : '';
+			if (suffixInput) {
+				suffixInput.addEventListener('input', function() {
+					deleteOldRow.style.display = this.value !== originalSuffix ? '' : 'none';
+				});
+			}
+
 			var nonce = <?php echo wp_json_encode( wp_create_nonce( 'static_archive' ) ); ?>;
 			var statusEl = document.getElementById('static-archive-status');
 			var logEl = document.getElementById('static-archive-log');

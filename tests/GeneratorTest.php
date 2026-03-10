@@ -444,4 +444,53 @@ class GeneratorTest extends TestCase {
 		$result = $this->generator->rewrite_urls( $input, '/tmp/wp-uploads/2020' );
 		$this->assertSame( $input, $result );
 	}
+
+	// -------------------------------------------------------------------------
+	// delete_all
+	// -------------------------------------------------------------------------
+
+	public function test_delete_all_removes_files_with_current_suffix() {
+		$dir = '/tmp/wp-uploads';
+		mkdir( $dir . '/2020', 0777, true );
+		mkdir( $dir . '/pages', 0777, true );
+
+		$files = array(
+			$dir . '/archive-aaaaaaaa.html',
+			$dir . '/archive-aaaaaaaa.md',
+			$dir . '/style-aaaaaaaa.css',
+			$dir . '/2020/archive-aaaaaaaa.html',
+			$dir . '/2020/latest-aaaaaaaa.html',
+			$dir . '/2020/post-1-aaaaaaaa.html',
+			$dir . '/2020/post-1-aaaaaaaa.md',
+			$dir . '/pages/page-1-aaaaaaaa.html',
+		);
+		foreach ( $files as $file ) {
+			file_put_contents( $file, 'test' );
+		}
+
+		$deleted = $this->generator->delete_all();
+
+		$this->assertSame( count( $files ), $deleted );
+		foreach ( $files as $file ) {
+			$this->assertFileDoesNotExist( $file );
+		}
+
+		@rmdir( $dir . '/2020' );
+		@rmdir( $dir . '/pages' );
+	}
+
+	public function test_delete_all_leaves_files_with_different_suffix() {
+		$dir = '/tmp/wp-uploads';
+		mkdir( $dir . '/2020', 0777, true );
+
+		$other_file = $dir . '/2020/post-1-bbbbbbbb.html';
+		file_put_contents( $other_file, 'test' );
+
+		$this->generator->delete_all();
+
+		$this->assertFileExists( $other_file );
+
+		unlink( $other_file );
+		@rmdir( $dir . '/2020' );
+	}
 }
