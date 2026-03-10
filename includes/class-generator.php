@@ -90,6 +90,13 @@ class Static_Archive_Generator {
 	}
 
 	/**
+	 * Get the stylesheet filename.
+	 */
+	public function get_style_filename() {
+		return 'style' . $this->suffix . '.css';
+	}
+
+	/**
 	 * Get the year archive filenames.
 	 *
 	 * @return array { asc: string, desc: string }
@@ -183,7 +190,7 @@ class Static_Archive_Generator {
 		$blog_description = $this->blog_description;
 		$lang             = $this->lang;
 		$index_url        = '../' . $this->get_index_filename();
-		$style_url        = '../style.css';
+		$style_url        = '../' . $this->get_style_filename();
 		$year_archive_url = 'post' === $wp_post->post_type ? $this->filename( 'latest' ) : '../' . $this->get_index_filename();
 
 		$status = 'unchanged';
@@ -290,7 +297,7 @@ class Static_Archive_Generator {
 		$blog_name        = $this->blog_name;
 		$blog_description = $this->blog_description;
 		$lang             = $this->lang;
-		$style_url        = 'style.css';
+		$style_url        = $this->get_style_filename();
 
 		if ( $this->should_output_html() ) {
 			ob_start();
@@ -382,7 +389,7 @@ class Static_Archive_Generator {
 		$blog_description = $this->blog_description;
 		$lang             = $this->lang;
 		$index_url        = '../' . $this->get_index_filename();
-		$style_url        = '../style.css';
+		$style_url        = '../' . $this->get_style_filename();
 		$dir              = $this->output_dir . '/' . $year;
 		wp_mkdir_p( $dir );
 
@@ -431,7 +438,7 @@ class Static_Archive_Generator {
 		foreach ( array( 'html', 'md' ) as $ext ) {
 			$files[] = $this->output_dir . '/archive' . $this->suffix . '.' . $ext;
 		}
-		$files[] = $this->output_dir . '/style.css';
+		$files[] = $this->output_dir . '/' . $this->get_style_filename();
 
 		// Year directories.
 		foreach ( glob( $this->output_dir . '/[0-9][0-9][0-9][0-9]' ) as $year_dir ) {
@@ -474,7 +481,7 @@ class Static_Archive_Generator {
 	public function copy_stylesheet() {
 		copy(
 			dirname( __DIR__ ) . '/templates/style.css',
-			$this->output_dir . '/style.css'
+			$this->output_dir . '/' . $this->get_style_filename()
 		);
 	}
 
