@@ -602,17 +602,17 @@ class Static_Archive_Generator {
 	/**
 	 * Verify the archive: find missing, orphaned, and outdated files.
 	 */
-	public function verify() {
-		$all_posts = get_posts(
-			array(
-				'post_type'      => $this->post_types,
-				'post_status'    => 'publish',
-				'posts_per_page' => -1,
-				'orderby'        => 'date',
-				'order'          => 'DESC',
-				'no_found_rows'  => true,
-			)
+	public function verify( $limit = 100 ) {
+		$query_args = array(
+			'post_type'      => $this->post_types,
+			'post_status'    => 'publish',
+			'posts_per_page' => $limit > 0 ? $limit : -1,
+			'orderby'        => 'date',
+			'order'          => 'DESC',
+			'no_found_rows'  => true,
 		);
+		$all_posts  = get_posts( $query_args );
+		$limited    = $limit > 0 && count( $all_posts ) === $limit;
 
 		$expected_files = array();
 		$missing        = array();
@@ -649,15 +649,17 @@ class Static_Archive_Generator {
 			}
 		}
 
-		// Find orphaned files in year directories and pages directory.
+		// Find orphaned files — only when we have the full post list.
 		$orphaned = array();
-		foreach ( array( 'html', 'md' ) as $ext ) {
-			foreach ( glob( $this->output_dir . '/*/*-*' . $this->suffix . '.' . $ext ) as $file ) {
-				$dir_name = basename( dirname( $file ) );
-				$basename = basename( $file );
-				$rel_path = $dir_name . '/' . $basename;
-				if ( ! isset( $expected_files[ $rel_path ] ) ) {
-					$orphaned[] = $rel_path;
+		if ( ! $limited ) {
+			foreach ( array( 'html', 'md' ) as $ext ) {
+				foreach ( glob( $this->output_dir . '/*/*-*' . $this->suffix . '.' . $ext ) as $file ) {
+					$dir_name = basename( dirname( $file ) );
+					$basename = basename( $file );
+					$rel_path = $dir_name . '/' . $basename;
+					if ( ! isset( $expected_files[ $rel_path ] ) ) {
+						$orphaned[] = $rel_path;
+					}
 				}
 			}
 		}
@@ -668,6 +670,7 @@ class Static_Archive_Generator {
 			'outdated'       => $outdated,
 			'total_posts'    => count( $all_posts ),
 			'total_archived' => count( $all_posts ) - count( $missing ),
+			'limited'        => $limited,
 		);
 	}
 

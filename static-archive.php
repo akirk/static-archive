@@ -152,12 +152,18 @@ class Static_Archive {
 	public function render_admin_page() {
 		$this->maybe_save_settings();
 
-		$generator     = new Static_Archive_Generator();
-		$output_dir    = $generator->get_output_dir();
-		$suffix        = Static_Archive_Generator::get_filename_suffix();
-		$upload_dir    = wp_get_upload_dir();
-		$index_url     = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
-		$post_types    = Static_Archive_Generator::get_post_types();
+		$generator  = new Static_Archive_Generator();
+		$output_dir = $generator->get_output_dir();
+		$suffix     = Static_Archive_Generator::get_filename_suffix();
+		$upload_dir = wp_get_upload_dir();
+		$index_url  = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
+		$post_types = Static_Archive_Generator::get_post_types();
+
+		$total_posts = 0;
+		foreach ( $post_types as $type ) {
+			$counts       = wp_count_posts( $type );
+			$total_posts += (int) $counts->publish;
+		}
 		$output_format = get_option( 'static_archive_output_format', 'html' );
 		?>
 		<style>
@@ -298,7 +304,7 @@ class Static_Archive {
 				</div>
 
 				<div id="static-archive-status" class="sa-status">
-					<div class="sa-stat"><span class="sa-stat-num">&hellip;</span><span class="sa-stat-label">loading</span></div>
+					<div class="sa-stat"><span class="sa-stat-num"><?php echo esc_html( $total_posts ); ?></span><span class="sa-stat-label">posts</span></div>
 				</div>
 
 				<div class="sa-actions">
@@ -391,7 +397,6 @@ class Static_Archive {
 			}
 
 			function verify() {
-				statusEl.innerHTML = stat('&hellip;', 'verifying');
 				fetch(ajaxurl + '?action=static_archive_verify&_wpnonce=' + nonce)
 					.then(function(r) { return r.json(); })
 					.then(function(data) {
@@ -400,7 +405,7 @@ class Static_Archive {
 							return;
 						}
 						var r = data.data;
-						var html = stat(r.total_posts, 'entries');
+						var html = stat(r.total_posts, r.limited ? 'sampled' : 'entries');
 						html += stat(r.total_archived, 'archived', r.total_archived === r.total_posts ? 'sa-ok' : '');
 						if (r.missing.length) html += stat(r.missing.length, 'missing', 'sa-error');
 						if (r.outdated.length) html += stat(r.outdated.length, 'outdated', 'sa-warn');
@@ -507,7 +512,6 @@ class Static_Archive {
 					});
 			});
 
-			verify();
 		})();
 		</script>
 		<?php
