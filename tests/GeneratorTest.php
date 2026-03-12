@@ -482,6 +482,58 @@ class GeneratorTest extends TestCase {
 		$this->assertSame( '<a href="post-42-aaaaaaaa.html">link</a>', $result );
 	}
 
+	public function test_rewrite_urls_rewrites_root_relative_permalink() {
+		$GLOBALS['_test_page_by_path']['my-post'] = $this->make_post(
+			array(
+				'ID'        => 42,
+				'post_name' => 'my-post',
+				'post_type' => 'post',
+				'post_date' => '2020-06-15 10:00:00',
+			)
+		);
+		$result = $this->generator->rewrite_urls(
+			'<a href="/my-post/">link</a>',
+			'/tmp/wp-uploads/2020'
+		);
+		$this->assertSame( '<a href="post-42-aaaaaaaa.html">link</a>', $result );
+	}
+
+	public function test_rewrite_urls_rewrites_permalink_with_capital_letters() {
+		$GLOBALS['_test_page_by_path']['My-Post'] = $this->make_post(
+			array(
+				'ID'        => 43,
+				'post_name' => 'My-Post',
+				'post_type' => 'post',
+				'post_date' => '2020-06-15 10:00:00',
+			)
+		);
+		$result = $this->generator->rewrite_urls(
+			'<a href="/My-Post/">link</a>',
+			'/tmp/wp-uploads/2020'
+		);
+		$this->assertSame( '<a href="post-43-aaaaaaaa.html">link</a>', $result );
+	}
+
+	public function test_rewrite_urls_rewrites_root_relative_home_to_front_page() {
+		$GLOBALS['_test_options']['show_on_front'] = 'page';
+		$GLOBALS['_test_options']['page_on_front'] = 7;
+		$front                                     = $this->make_post(
+			array(
+				'ID'        => 7,
+				'post_name' => 'home',
+				'post_type' => 'page',
+			)
+		);
+		$GLOBALS['_test_posts'][7]     = $front;
+		$GLOBALS['_test_page_uri'][7]  = 'home';
+		$gen                           = new Static_Archive_Generator();
+		$result                        = $gen->rewrite_urls(
+			'<a href="/">link</a>',
+			'/tmp/wp-uploads'
+		);
+		$this->assertSame( '<a href="home-aaaaaaaa.html">link</a>', $result );
+	}
+
 	public function test_rewrite_urls_leaves_unknown_permalink_unchanged() {
 		$input  = '<a href="http://example.com/unknown-post">link</a>';
 		$result = $this->generator->rewrite_urls( $input, '/tmp/wp-uploads/2020' );

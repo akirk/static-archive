@@ -925,17 +925,21 @@ class Static_Archive_Generator {
 		);
 
 		// Rewrite internal post permalinks to archive files.
+		// Handles both absolute URLs (https://example.com/slug/) and root-relative (/slug/).
 		$site_url      = preg_quote( trailingslashit( home_url() ), '/' );
+		$home_path     = rtrim( wp_parse_url( home_url(), PHP_URL_PATH ) ?? '', '/' );
+		$rel_prefix    = preg_quote( $home_path . '/', '/' );
+		$slug_pattern  = '([a-zA-Z0-9][a-zA-Z0-9-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9-]*)*)';
 		$front_page_id = $this->get_front_page_id();
 
-		// Rewrite bare home URL to the static front page.
+		// Rewrite bare home URL (absolute and root-relative) to the static front page.
 		if ( $front_page_id ) {
 			$front_page = get_post( $front_page_id );
 			if ( $front_page && 'publish' === $front_page->post_status ) {
 				$front_target    = $this->output_dir . '/' . $this->get_post_relative_path( $front_page );
 				$front_rewritten = 'href="' . $this->make_relative_path( $from_dir, $front_target ) . '"';
 				$content         = preg_replace_callback(
-					'/href=["\']' . $site_url . '["\']|href=["\']' . preg_quote( rtrim( home_url(), '/' ), '/' ) . '["\']/',
+					'/href=["\'](?:' . $site_url . '|' . preg_quote( rtrim( home_url(), '/' ), '/' ) . '|' . $rel_prefix . ')["\']/',
 					function () use ( $front_rewritten ) {
 						return $front_rewritten;
 					},
@@ -944,17 +948,25 @@ class Static_Archive_Generator {
 			}
 		}
 
+		$rewrite_slug = function ( $matches ) use ( $from_dir ) {
+			$slug    = $matches[1];
+			$wp_post = get_page_by_path( $slug, OBJECT, $this->post_types );
+			if ( $wp_post && 'publish' === $wp_post->post_status ) {
+				$target = $this->output_dir . '/' . $this->get_post_relative_path( $wp_post );
+				return 'href="' . $this->make_relative_path( $from_dir, $target ) . '"';
+			}
+			return $matches[0];
+		};
+
 		$content = preg_replace_callback(
-			'/href=["\']' . $site_url . '([a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)\/?["\']/',
-			function ( $matches ) use ( $from_dir ) {
-				$slug    = $matches[1];
-				$wp_post = get_page_by_path( $slug, OBJECT, $this->post_types );
-				if ( $wp_post && 'publish' === $wp_post->post_status ) {
-					$target = $this->output_dir . '/' . $this->get_post_relative_path( $wp_post );
-					return 'href="' . $this->make_relative_path( $from_dir, $target ) . '"';
-				}
-				return $matches[0];
-			},
+			'/href=["\']' . $site_url . $slug_pattern . '\/?["\']/',
+			$rewrite_slug,
+			$content
+		);
+
+		$content = preg_replace_callback(
+			'/href=["\']' . $rel_prefix . $slug_pattern . '\/?["\']/',
+			$rewrite_slug,
 			$content
 		);
 
