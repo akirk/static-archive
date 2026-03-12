@@ -8,6 +8,10 @@
 <?php echo $stats['total']; ?> posts · <?php echo $stats['date_first']; ?> – <?php echo $stats['date_last']; ?> · <?php echo implode( ', ', $stats['authors'] ); ?>
 
 <?php endif; ?>
+<?php if ( $front_page ) : ?>
+- [<?php echo $front_page['title']; ?>](<?php echo $front_page['href']; ?>)
+
+<?php endif; ?>
 <?php if ( ! empty( $pages ) ) : ?>
 ## Pages
 

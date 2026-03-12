@@ -64,15 +64,50 @@ class Static_Archive_Generator {
 	}
 
 	/**
+	 * Get the ID of the static front page, or 0 if the front page shows latest posts.
+	 */
+	private function get_front_page_id() {
+		if ( 'page' !== get_option( 'show_on_front' ) ) {
+			return 0;
+		}
+		return (int) get_option( 'page_on_front', 0 );
+	}
+
+	/**
 	 * Get the relative path for a post's file (e.g. '2024/post-123-xK4mQ9p.html').
+	 *
+	 * Pages use slug-based paths reflecting the page hierarchy (e.g. 'pages/about/team-xK4mQ9p.html').
+	 * The static front page lives at the root level (e.g. 'home-xK4mQ9p.html').
 	 */
 	public function get_post_relative_path( $wp_post, $ext = 'html' ) {
-		$prefix = $wp_post->post_type;
 		if ( 'page' === $wp_post->post_type ) {
-			return 'pages/' . $this->filename( $prefix . '-' . $wp_post->ID, $ext );
+			$front_page_id = $this->get_front_page_id();
+			if ( $front_page_id && (int) $wp_post->ID === $front_page_id ) {
+				return $this->filename( $wp_post->post_name, $ext );
+			}
+			$uri    = get_page_uri( $wp_post );
+			$parts  = explode( '/', $uri );
+			$slug   = array_pop( $parts );
+			$subdir = implode( '/', $parts );
+			return 'pages/' . ( $subdir ? $subdir . '/' : '' ) . $this->filename( $slug, $ext );
 		}
 		$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
-		return $year . '/' . $this->filename( $prefix . '-' . $wp_post->ID, $ext );
+		return $year . '/' . $this->filename( $wp_post->post_type . '-' . $wp_post->ID, $ext );
+	}
+
+	/**
+	 * Get the filename of the static front page archive file, or null if none.
+	 */
+	public function get_front_page_filename( $ext = 'html' ) {
+		$front_page_id = $this->get_front_page_id();
+		if ( ! $front_page_id ) {
+			return null;
+		}
+		$wp_post = get_post( $front_page_id );
+		if ( ! $wp_post || 'publish' !== $wp_post->post_status ) {
+			return null;
+		}
+		return $this->filename( $wp_post->post_name, $ext );
 	}
 
 	/**
@@ -189,9 +224,11 @@ class Static_Archive_Generator {
 		$blog_name        = $this->blog_name;
 		$blog_description = $this->blog_description;
 		$lang             = $this->lang;
-		$index_url        = '../' . $this->get_index_filename();
-		$style_url        = '../' . $this->get_style_filename();
-		$year_archive_url = 'post' === $wp_post->post_type ? $this->filename( 'latest' ) : '../' . $this->get_index_filename();
+		$post_dir         = dirname( $this->get_post_file_path( $wp_post ) );
+		$index_url        = $this->make_relative_path( $post_dir, $this->output_dir . '/' . $this->get_index_filename() );
+		$style_url        = $this->make_relative_path( $post_dir, $this->output_dir . '/' . $this->get_style_filename() );
+		$year_archive_url = 'post' === $wp_post->post_type ? $this->filename( 'latest' ) : $index_url;
+		$archive_url      = ( $this->get_front_page_id() === (int) $wp_post->ID ) ? $index_url : '';
 
 		$status = 'unchanged';
 
@@ -253,13 +290,22 @@ class Static_Archive_Generator {
 			)
 		);
 
-		$years   = array();
-		$pages   = array();
-		$authors = array();
+		$front_page_id = $this->get_front_page_id();
+		$front_page    = null;
+		$years         = array();
+		$pages         = array();
+		$authors       = array();
 		foreach ( $posts_query->posts as $wp_post ) {
 			$author = get_the_author_meta( 'display_name', $wp_post->post_author );
 
 			if ( 'page' === $wp_post->post_type ) {
+				if ( $front_page_id && (int) $wp_post->ID === $front_page_id ) {
+					$front_page = array(
+						'title' => $this->get_display_title( $wp_post ),
+						'href'  => $this->get_post_relative_path( $wp_post ),
+					);
+					continue;
+				}
 				$pages[] = array(
 					'title' => $this->get_display_title( $wp_post ),
 					'href'  => $this->get_post_relative_path( $wp_post ),
@@ -436,10 +482,14 @@ class Static_Archive_Generator {
 	 * Delete all generated archive files. Returns the number of files deleted.
 	 */
 	public function delete_all() {
-		$files = array();
+		$files          = array();
+		$suffix_pattern = preg_quote( $this->suffix, '/' );
 
+		// Root-level files (archive index, front page).
 		foreach ( array( 'html', 'md' ) as $ext ) {
-			$files[] = $this->output_dir . '/archive' . $this->suffix . '.' . $ext;
+			foreach ( glob( $this->output_dir . '/*' . $this->suffix . '.' . $ext ) as $f ) {
+				$files[] = $f;
+			}
 		}
 		$files[] = $this->output_dir . '/' . $this->get_style_filename();
 
@@ -449,20 +499,21 @@ class Static_Archive_Generator {
 				continue;
 			}
 			foreach ( array( 'html', 'md' ) as $ext ) {
-				$files[] = $year_dir . '/archive' . $this->suffix . '.' . $ext;
-				$files[] = $year_dir . '/latest' . $this->suffix . '.' . $ext;
-				foreach ( glob( $year_dir . '/*-*' . $this->suffix . '.' . $ext ) as $post_file ) {
-					$files[] = $post_file;
+				foreach ( glob( $year_dir . '/*' . $this->suffix . '.' . $ext ) as $f ) {
+					$files[] = $f;
 				}
 			}
 		}
 
-		// Pages directory.
+		// Pages directory (recursive, slug-based filenames).
 		$pages_dir = $this->output_dir . '/pages';
 		if ( is_dir( $pages_dir ) ) {
-			foreach ( array( 'html', 'md' ) as $ext ) {
-				foreach ( glob( $pages_dir . '/page-*' . $this->suffix . '.' . $ext ) as $page_file ) {
-					$files[] = $page_file;
+			$it = new RecursiveIteratorIterator(
+				new RecursiveDirectoryIterator( $pages_dir, RecursiveDirectoryIterator::SKIP_DOTS )
+			);
+			foreach ( $it as $file_info ) {
+				if ( preg_match( '/' . $suffix_pattern . '\.(html|md)$/', $file_info->getFilename() ) ) {
+					$files[] = $file_info->getPathname();
 				}
 			}
 		}
@@ -661,13 +712,61 @@ class Static_Archive_Generator {
 		// Find orphaned files — only when we have the full post list.
 		$orphaned = array();
 		if ( ! $missing_capped ) {
+			// Add known archive index files so they're not flagged as orphans.
 			foreach ( array( 'html', 'md' ) as $ext ) {
-				foreach ( glob( $this->output_dir . '/*/*-*' . $this->suffix . '.' . $ext ) as $file ) {
-					$dir_name = basename( dirname( $file ) );
-					$basename = basename( $file );
-					$rel_path = $dir_name . '/' . $basename;
+				$expected_files[ $this->get_index_filename( $ext ) ] = true;
+			}
+
+			$suffix_pattern    = preg_quote( $this->suffix, '/' );
+			$year_index_html   = array( $this->filename( 'archive' ), $this->filename( 'latest' ) );
+			$year_index_md     = array( $this->filename( 'archive', 'md' ), $this->filename( 'latest', 'md' ) );
+			$year_index_by_ext = array(
+				'html' => $year_index_html,
+				'md'   => $year_index_md,
+			);
+
+			// Root-level files (front page, archive index).
+			foreach ( array( 'html', 'md' ) as $ext ) {
+				foreach ( glob( $this->output_dir . '/*' . $this->suffix . '.' . $ext ) as $file ) {
+					$rel_path = basename( $file );
 					if ( ! isset( $expected_files[ $rel_path ] ) ) {
 						$orphaned[] = $rel_path;
+					}
+				}
+			}
+
+			// Year directories.
+			foreach ( glob( $this->output_dir . '/[0-9][0-9][0-9][0-9]' ) as $year_dir ) {
+				if ( ! is_dir( $year_dir ) ) {
+					continue;
+				}
+				$year = basename( $year_dir );
+				foreach ( array( 'html', 'md' ) as $ext ) {
+					foreach ( glob( $year_dir . '/*' . $this->suffix . '.' . $ext ) as $file ) {
+						$basename = basename( $file );
+						if ( in_array( $basename, $year_index_by_ext[ $ext ], true ) ) {
+							continue;
+						}
+						$rel_path = $year . '/' . $basename;
+						if ( ! isset( $expected_files[ $rel_path ] ) ) {
+							$orphaned[] = $rel_path;
+						}
+					}
+				}
+			}
+
+			// Pages directory (recursive).
+			$pages_dir = $this->output_dir . '/pages';
+			if ( is_dir( $pages_dir ) ) {
+				$it = new RecursiveIteratorIterator(
+					new RecursiveDirectoryIterator( $pages_dir, RecursiveDirectoryIterator::SKIP_DOTS )
+				);
+				foreach ( $it as $file_info ) {
+					if ( preg_match( '/' . $suffix_pattern . '\.(html|md)$/', $file_info->getFilename() ) ) {
+						$rel_path = 'pages/' . substr( $file_info->getPathname(), strlen( $pages_dir ) + 1 );
+						if ( ! isset( $expected_files[ $rel_path ] ) ) {
+							$orphaned[] = $rel_path;
+						}
 					}
 				}
 			}
@@ -826,9 +925,27 @@ class Static_Archive_Generator {
 		);
 
 		// Rewrite internal post permalinks to archive files.
-		$site_url = preg_quote( trailingslashit( home_url() ), '/' );
-		$content  = preg_replace_callback(
-			'/href=["\']' . $site_url . '([a-z0-9-]+)\/?["\']/',
+		$site_url      = preg_quote( trailingslashit( home_url() ), '/' );
+		$front_page_id = $this->get_front_page_id();
+
+		// Rewrite bare home URL to the static front page.
+		if ( $front_page_id ) {
+			$front_page = get_post( $front_page_id );
+			if ( $front_page && 'publish' === $front_page->post_status ) {
+				$front_target    = $this->output_dir . '/' . $this->get_post_relative_path( $front_page );
+				$front_rewritten = 'href="' . $this->make_relative_path( $from_dir, $front_target ) . '"';
+				$content         = preg_replace_callback(
+					'/href=["\']' . $site_url . '["\']|href=["\']' . preg_quote( rtrim( home_url(), '/' ), '/' ) . '["\']/',
+					function () use ( $front_rewritten ) {
+						return $front_rewritten;
+					},
+					$content
+				);
+			}
+		}
+
+		$content = preg_replace_callback(
+			'/href=["\']' . $site_url . '([a-z0-9][a-z0-9-]*(?:\/[a-z0-9][a-z0-9-]*)*)\/?["\']/',
 			function ( $matches ) use ( $from_dir ) {
 				$slug    = $matches[1];
 				$wp_post = get_page_by_path( $slug, OBJECT, $this->post_types );

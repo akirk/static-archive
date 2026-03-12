@@ -40,6 +40,11 @@
 			?>
 			</span>
 		</nav>
+		<?php if ( $archive_url ) : ?>
+		<footer class="site-footer">
+			<a href="<?php echo esc_attr( $archive_url ); ?>">Archive</a>
+		</footer>
+		<?php endif; ?>
 	</main>
 </body>
 </html>

@@ -14,3 +14,9 @@ author: <?php echo $post_author; ?>
 *<?php echo $post_date; ?> — <?php echo $post_author; ?>*
 
 <?php echo $content_md; ?>
+
+<?php if ( $archive_url ) : ?>
+---
+
+[Archive](<?php echo $archive_url; ?>)
+<?php endif; ?>

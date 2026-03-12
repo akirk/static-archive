@@ -8,12 +8,19 @@
 </head>
 <body>
 	<header class="site-header">
-		<a href="#"><?php echo esc_html( $blog_name ); ?></a>
+		<a href="<?php echo $front_page ? esc_attr( $front_page['href'] ) : '#'; ?>"><?php echo esc_html( $blog_name ); ?></a>
 		<?php if ( $blog_description ) : ?>
 		<p class="site-description"><?php echo esc_html( $blog_description ); ?></p>
 		<?php endif; ?>
 	</header>
 	<main>
+		<?php if ( $front_page ) : ?>
+		<section class="pages-group">
+			<ul class="post-list">
+				<li><a href="<?php echo esc_attr( $front_page['href'] ); ?>"><?php echo esc_html( $front_page['title'] ); ?></a></li>
+			</ul>
+		</section>
+		<?php endif; ?>
 		<?php if ( $stats['total'] ) : ?>
 		<div class="archive-stats">
 			<span><?php echo esc_html( $stats['total'] ); ?> posts</span>

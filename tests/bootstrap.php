@@ -9,6 +9,8 @@ if ( ! defined( 'OBJECT' ) ) {
 // Controllable options store — reset in setUp() for each test.
 $GLOBALS['_test_options']      = array();
 $GLOBALS['_test_page_by_path'] = array();
+$GLOBALS['_test_page_uri']     = array();
+$GLOBALS['_test_posts']        = array();
 
 if ( ! function_exists( 'get_option' ) ) {
 	function get_option( $option, $default = false ) {
@@ -70,6 +72,19 @@ if ( ! function_exists( 'home_url' ) ) {
 if ( ! function_exists( 'get_page_by_path' ) ) {
 	function get_page_by_path( $slug, $output = OBJECT, $post_type = 'page' ) {
 		return $GLOBALS['_test_page_by_path'][ $slug ] ?? null;
+	}
+}
+
+if ( ! function_exists( 'get_page_uri' ) ) {
+	function get_page_uri( $page ) {
+		$id = is_object( $page ) ? $page->ID : (int) $page;
+		return $GLOBALS['_test_page_uri'][ $id ] ?? ( is_object( $page ) ? $page->post_name : '' );
+	}
+}
+
+if ( ! function_exists( 'get_post' ) ) {
+	function get_post( $post_id ) {
+		return $GLOBALS['_test_posts'][ $post_id ] ?? null;
 	}
 }
 

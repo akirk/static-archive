@@ -152,12 +152,14 @@ class Static_Archive {
 	public function render_admin_page() {
 		$this->maybe_save_settings();
 
-		$generator  = new Static_Archive_Generator();
-		$output_dir = $generator->get_output_dir();
-		$suffix     = Static_Archive_Generator::get_filename_suffix();
-		$upload_dir = wp_get_upload_dir();
-		$index_url  = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
-		$post_types = Static_Archive_Generator::get_post_types();
+		$generator           = new Static_Archive_Generator();
+		$output_dir          = $generator->get_output_dir();
+		$suffix              = Static_Archive_Generator::get_filename_suffix();
+		$upload_dir          = wp_get_upload_dir();
+		$index_url           = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
+		$front_page_filename = $generator->get_front_page_filename();
+		$front_page_url      = $front_page_filename ? $upload_dir['baseurl'] . '/' . $front_page_filename : null;
+		$post_types          = Static_Archive_Generator::get_post_types();
 
 		$total_posts = 0;
 		foreach ( $post_types as $type ) {
@@ -298,9 +300,15 @@ class Static_Archive {
 						<span class="sa-meta-value"><?php echo esc_html( $output_dir ); ?></span>
 					</div>
 					<div class="sa-meta-item">
-						<span class="sa-meta-label">Main index</span>
+						<span class="sa-meta-label">Archive index</span>
 						<span class="sa-meta-value"><a href="<?php echo esc_url( $index_url ); ?>" target="_blank"><?php echo esc_html( $generator->get_index_filename() ); ?></a></span>
 					</div>
+					<?php if ( $front_page_url ) : ?>
+					<div class="sa-meta-item">
+						<span class="sa-meta-label">Homepage</span>
+						<span class="sa-meta-value"><a href="<?php echo esc_url( $front_page_url ); ?>" target="_blank"><?php echo esc_html( $front_page_filename ); ?></a></span>
+					</div>
+					<?php endif; ?>
 				</div>
 
 				<div id="static-archive-status" class="sa-status">

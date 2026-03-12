@@ -10,6 +10,8 @@ class GeneratorTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['_test_options']      = array( 'date_format' => 'Y-m-d' );
 		$GLOBALS['_test_page_by_path'] = array();
+		$GLOBALS['_test_page_uri']     = array();
+		$GLOBALS['_test_posts']        = array();
 		$this->tmpDir                  = sys_get_temp_dir() . '/static-archive-test';
 		if ( is_dir( $this->tmpDir ) ) {
 			$this->removeDir( $this->tmpDir );
@@ -230,10 +232,51 @@ class GeneratorTest extends TestCase {
 		$post = $this->make_post(
 			array(
 				'ID'        => 10,
+				'post_name' => 'about',
 				'post_type' => 'page',
 			)
 		);
-		$this->assertSame( 'pages/page-10-aaaaaaaa.html', $this->generator->get_post_relative_path( $post ) );
+		$this->assertSame( 'pages/about-aaaaaaaa.html', $this->generator->get_post_relative_path( $post ) );
+	}
+
+	public function test_post_relative_path_for_child_page() {
+		$post = $this->make_post(
+			array(
+				'ID'        => 20,
+				'post_name' => 'team',
+				'post_type' => 'page',
+			)
+		);
+		$GLOBALS['_test_page_uri'][20] = 'about/team';
+		$this->assertSame( 'pages/about/team-aaaaaaaa.html', $this->generator->get_post_relative_path( $post ) );
+	}
+
+	public function test_post_relative_path_for_front_page() {
+		$GLOBALS['_test_options']['show_on_front']  = 'page';
+		$GLOBALS['_test_options']['page_on_front']  = 5;
+		$gen  = new Static_Archive_Generator();
+		$post = $this->make_post(
+			array(
+				'ID'        => 5,
+				'post_name' => 'home',
+				'post_type' => 'page',
+			)
+		);
+		$this->assertSame( 'home-aaaaaaaa.html', $gen->get_post_relative_path( $post ) );
+	}
+
+	public function test_post_relative_path_for_page_not_front_page() {
+		$GLOBALS['_test_options']['show_on_front'] = 'page';
+		$GLOBALS['_test_options']['page_on_front'] = 5;
+		$gen  = new Static_Archive_Generator();
+		$post = $this->make_post(
+			array(
+				'ID'        => 10,
+				'post_name' => 'about',
+				'post_type' => 'page',
+			)
+		);
+		$this->assertSame( 'pages/about-aaaaaaaa.html', $gen->get_post_relative_path( $post ) );
 	}
 
 	public function test_post_relative_path_markdown_extension() {
@@ -453,16 +496,19 @@ class GeneratorTest extends TestCase {
 		$dir = '/tmp/wp-uploads';
 		mkdir( $dir . '/2020', 0777, true );
 		mkdir( $dir . '/pages', 0777, true );
+		mkdir( $dir . '/pages/about', 0777, true );
 
 		$files = array(
 			$dir . '/archive-aaaaaaaa.html',
 			$dir . '/archive-aaaaaaaa.md',
+			$dir . '/home-aaaaaaaa.html',
 			$dir . '/style-aaaaaaaa.css',
 			$dir . '/2020/archive-aaaaaaaa.html',
 			$dir . '/2020/latest-aaaaaaaa.html',
 			$dir . '/2020/post-1-aaaaaaaa.html',
 			$dir . '/2020/post-1-aaaaaaaa.md',
-			$dir . '/pages/page-1-aaaaaaaa.html',
+			$dir . '/pages/about-aaaaaaaa.html',
+			$dir . '/pages/about/team-aaaaaaaa.html',
 		);
 		foreach ( $files as $file ) {
 			file_put_contents( $file, 'test' );
@@ -476,6 +522,7 @@ class GeneratorTest extends TestCase {
 		}
 
 		@rmdir( $dir . '/2020' );
+		@rmdir( $dir . '/pages/about' );
 		@rmdir( $dir . '/pages' );
 	}
 
