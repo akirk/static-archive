@@ -5,7 +5,12 @@
  * Version: 1.0.0
  * Author: Alex Kirk
  * Author URI: https://alex.kirk.at/
+ * Requires at least: 5.0
+ * Tested up to: 6.8
+ * Requires PHP: 7.0
  * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ * Text Domain: static-archive
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -34,7 +39,7 @@ class Static_Archive {
 	 */
 	public function add_plugin_action_links( $links ) {
 		$url = admin_url( 'tools.php?page=static-archive' );
-		array_unshift( $links, '<a href="' . esc_url( $url ) . '">Archive</a>' );
+		array_unshift( $links, '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Archive', 'static-archive' ) . '</a>' );
 		return $links;
 	}
 
@@ -91,8 +96,8 @@ class Static_Archive {
 	 */
 	public function add_admin_page() {
 		add_management_page(
-			'Static Archive',
-			'Static Archive',
+			__( 'Static Archive', 'static-archive' ),
+			__( 'Static Archive', 'static-archive' ),
 			'manage_options',
 			'static-archive',
 			array( $this, 'render_admin_page' )
@@ -290,36 +295,36 @@ class Static_Archive {
 		</style>
 
 		<div class="wrap sa-wrap">
-			<h1>Static Archive</h1>
-			<p class="sa-intro">This plugin generates a standalone HTML copy of all your posts, stored directly in the uploads directory alongside your images. The archive is fully self-contained &mdash; no WordPress needed to browse it. New posts are archived automatically when published, or you can regenerate everything at once below.</p>
+			<h1><?php esc_html_e( 'Static Archive', 'static-archive' ); ?></h1>
+			<p class="sa-intro"><?php esc_html_e( 'This plugin generates a standalone HTML copy of all your posts, stored directly in the uploads directory alongside your images. The archive is fully self-contained — no WordPress needed to browse it. New posts are archived automatically when published, or you can regenerate everything at once below.', 'static-archive' ); ?></p>
 
 			<div class="sa-card">
-				<h2>Archive</h2>
+				<h2><?php esc_html_e( 'Archive', 'static-archive' ); ?></h2>
 				<div class="sa-meta">
 					<div class="sa-meta-item">
-						<span class="sa-meta-label">Output directory</span>
+						<span class="sa-meta-label"><?php esc_html_e( 'Output directory', 'static-archive' ); ?></span>
 						<span class="sa-meta-value"><?php echo esc_html( $output_dir ); ?></span>
 					</div>
 					<div class="sa-meta-item">
-						<span class="sa-meta-label">Archive index</span>
+						<span class="sa-meta-label"><?php esc_html_e( 'Archive index', 'static-archive' ); ?></span>
 						<span class="sa-meta-value"><a href="<?php echo esc_url( $index_url ); ?>" target="_blank"><?php echo esc_html( $generator->get_index_filename() ); ?></a></span>
 					</div>
 					<?php if ( $front_page_url ) : ?>
 					<div class="sa-meta-item">
-						<span class="sa-meta-label">Homepage</span>
+						<span class="sa-meta-label"><?php esc_html_e( 'Homepage', 'static-archive' ); ?></span>
 						<span class="sa-meta-value"><a href="<?php echo esc_url( $front_page_url ); ?>" target="_blank"><?php echo esc_html( $front_page_filename ); ?></a></span>
 					</div>
 					<?php endif; ?>
 				</div>
 
 				<div id="static-archive-status" class="sa-status">
-					<div class="sa-stat"><span class="sa-stat-num"><?php echo esc_html( $total_posts ); ?></span><span class="sa-stat-label">posts</span></div>
+					<div class="sa-stat"><span class="sa-stat-num"><?php echo esc_html( $total_posts ); ?></span><span class="sa-stat-label"><?php esc_html_e( 'entries', 'static-archive' ); ?></span></div>
 				</div>
 
 				<div class="sa-actions">
-					<button id="static-archive-verify" class="button">Verify</button>
-					<button id="static-archive-generate" class="button button-primary">Generate All</button>
-					<button id="static-archive-delete-all" class="button" style="color: #d63638; border-color: #d63638;">Delete All Files</button>
+					<button id="static-archive-verify" class="button"><?php esc_html_e( 'Verify', 'static-archive' ); ?></button>
+					<button id="static-archive-generate" class="button button-primary"><?php esc_html_e( 'Generate All', 'static-archive' ); ?></button>
+					<button id="static-archive-delete-all" class="button" style="color: #d63638; border-color: #d63638;"><?php esc_html_e( 'Delete All Files', 'static-archive' ); ?></button>
 				</div>
 
 				<div id="static-archive-progress" class="sa-progress">
@@ -331,11 +336,11 @@ class Static_Archive {
 			</div>
 
 			<div class="sa-card">
-				<h2>Settings</h2>
+				<h2><?php esc_html_e( 'Settings', 'static-archive' ); ?></h2>
 				<form method="post">
 					<?php wp_nonce_field( 'static_archive_settings' ); ?>
 
-					<p><strong>Post types</strong></p>
+					<p><strong><?php esc_html_e( 'Post types', 'static-archive' ); ?></strong></p>
 					<div class="sa-checkbox-list">
 						<?php
 						foreach ( Static_Archive_Generator::get_available_post_types() as $type_name ) :
@@ -355,25 +360,32 @@ class Static_Archive {
 						<?php endforeach; ?>
 					</div>
 
-					<p style="margin-top: 1rem;"><strong>Output format</strong></p>
+					<p style="margin-top: 1rem;"><strong><?php esc_html_e( 'Output format', 'static-archive' ); ?></strong></p>
 					<div class="sa-checkbox-list">
 						<label><input type="checkbox" name="static_archive_format_html" value="1" <?php checked( in_array( $output_format, array( 'html', 'both' ), true ) ); ?>> HTML</label>
 						<label><input type="checkbox" name="static_archive_format_markdown" value="1" <?php checked( in_array( $output_format, array( 'markdown', 'both' ), true ) ); ?>> Markdown</label>
 					</div>
 
-					<p style="margin-top: 1rem;"><strong>Filename suffix</strong></p>
+					<p style="margin-top: 1rem;"><strong><?php esc_html_e( 'Filename suffix', 'static-archive' ); ?></strong></p>
 					<p style="margin: 0.5rem 0;">
 						<input type="text" id="static_archive_filename_suffix" name="static_archive_filename_suffix" value="<?php echo esc_attr( $suffix ); ?>" class="regular-text" placeholder="e.g. -xK4mQ9p">
 					</p>
 					<p class="sa-suffix-preview">
-						All generated files will be named like post-123<?php echo esc_html( $suffix ); ?>.html<br>
-						Leave empty for plain filenames. Changing this requires a full regeneration.
+						<?php
+						printf(
+							/* translators: %s: example filename like post-123-xK4mQ9p.html */
+							esc_html__( 'All generated files will be named like %s', 'static-archive' ),
+							'<code>post-123' . esc_html( $suffix ) . '.html</code>'
+						);
+						?>
+						<br>
+						<?php esc_html_e( 'Leave empty for plain filenames. Changing this requires a full regeneration.', 'static-archive' ); ?>
 					</p>
 					<p id="sa-delete-old-suffix-row" style="display:none; margin: 0.5rem 0;">
-						<label><input type="checkbox" name="static_archive_delete_old_suffix" value="1" checked> Delete existing archive files with the old suffix</label>
+						<label><input type="checkbox" name="static_archive_delete_old_suffix" value="1" checked> <?php esc_html_e( 'Delete existing archive files with the old suffix', 'static-archive' ); ?></label>
 					</p>
 					<p style="margin-top: 1rem;">
-						<input type="submit" name="static_archive_save_settings" class="button" value="Save Settings">
+						<input type="submit" name="static_archive_save_settings" class="button" value="<?php esc_attr_e( 'Save Settings', 'static-archive' ); ?>">
 					</p>
 				</form>
 			</div>
@@ -381,6 +393,38 @@ class Static_Archive {
 
 		<script>
 		(function() {
+			var i18n = 
+			<?php
+			echo wp_json_encode(
+				array(
+					'error'             => __( 'error', 'static-archive' ),
+					'entries'           => __( 'entries', 'static-archive' ),
+					'archived'          => __( 'archived', 'static-archive' ),
+					'missing'           => __( 'missing', 'static-archive' ),
+					'outdated'          => __( 'outdated', 'static-archive' ),
+					'orphaned'          => __( 'orphaned', 'static-archive' ),
+					'missingFiles'      => __( 'Missing files:', 'static-archive' ),
+					'missingFilesCap'   => __( 'Missing files (showing first 10):', 'static-archive' ),
+					'outdatedFiles'     => __( 'Outdated files:', 'static-archive' ),
+					'orphanedFiles'     => __( 'Orphaned files:', 'static-archive' ),
+					'complete'          => __( 'Archive is complete and up to date.', 'static-archive' ),
+					'errorPrefix'       => __( 'Error:', 'static-archive' ),
+					'unknownError'      => __( 'Unknown error', 'static-archive' ),
+					'created'           => __( 'created', 'static-archive' ),
+					'updated'           => __( 'updated', 'static-archive' ),
+					'unchanged'         => __( 'unchanged', 'static-archive' ),
+					'generatingIndexes' => __( 'Generating indexes and year archives…', 'static-archive' ),
+					'done'              => __( 'Done!', 'static-archive' ),
+					'starting'          => __( 'Starting full generation...', 'static-archive' ),
+					'confirmDelete'     => __( 'Delete all generated archive files? This cannot be undone, but you can regenerate them at any time.', 'static-archive' ),
+					/* translators: %d: number of deleted files */
+					'deletedOne'        => __( 'Deleted %d file.', 'static-archive' ),
+					/* translators: %d: number of deleted files */
+					'deletedMany'       => __( 'Deleted %d files.', 'static-archive' ),
+				)
+			);
+			?>
+			;
 			var suffixInput = document.getElementById('static_archive_filename_suffix');
 			var deleteOldRow = document.getElementById('sa-delete-old-suffix-row');
 			var originalSuffix = suffixInput ? suffixInput.value : '';
@@ -413,30 +457,30 @@ class Static_Archive {
 					.then(function(r) { return r.json(); })
 					.then(function(data) {
 						if (!data.success) {
-							statusEl.innerHTML = stat('!', 'error');
+							statusEl.innerHTML = stat('!', i18n.error);
 							return;
 						}
 						var r = data.data;
-						var html = stat(r.total_posts, 'entries');
-						html += stat(r.total_archived, 'archived', r.total_archived === r.total_posts ? 'sa-ok' : '');
-						if (r.missing.length) html += stat(r.missing_capped ? '>10' : r.missing.length, 'missing', 'sa-error');
-						if (r.outdated.length) html += stat(r.outdated.length, 'outdated', 'sa-warn');
-						if (r.orphaned.length) html += stat(r.orphaned.length, 'orphaned', 'sa-warn');
+						var html = stat(r.total_posts, i18n.entries);
+						html += stat(r.total_archived, i18n.archived, r.total_archived === r.total_posts ? 'sa-ok' : '');
+						if (r.missing.length) html += stat(r.missing_capped ? '>10' : r.missing.length, i18n.missing, 'sa-error');
+						if (r.outdated.length) html += stat(r.outdated.length, i18n.outdated, 'sa-warn');
+						if (r.orphaned.length) html += stat(r.orphaned.length, i18n.orphaned, 'sa-warn');
 						statusEl.innerHTML = html;
 						if (r.missing.length) {
-							log('Missing files' + (r.missing_capped ? ' (showing first 10):' : ':'));
+							log(r.missing_capped ? i18n.missingFilesCap : i18n.missingFiles);
 							r.missing.slice(0, 10).forEach(function(m) { log('  [' + m.id + '] ' + m.slug + ' (' + m.title + ')'); });
 						}
 						if (r.outdated.length) {
-							log('Outdated files:');
+							log(i18n.outdatedFiles);
 							r.outdated.forEach(function(m) { log('  [' + m.id + '] ' + m.slug + ' (' + m.title + ')'); });
 						}
 						if (r.orphaned.length) {
-							log('Orphaned files:');
+							log(i18n.orphanedFiles);
 							r.orphaned.forEach(function(f) { log('  ' + f); });
 						}
 						if (!r.missing.length && !r.outdated.length && !r.orphaned.length) {
-							log('Archive is complete and up to date.');
+							log(i18n.complete);
 						}
 					});
 			}
@@ -446,7 +490,7 @@ class Static_Archive {
 					.then(function(r) { return r.json(); })
 					.then(function(data) {
 						if (!data.success) {
-							log('Error: ' + (data.data || 'Unknown error'));
+							log(i18n.errorPrefix + ' ' + (data.data || i18n.unknownError));
 							running = false;
 							generateBtn.disabled = false;
 							return;
@@ -467,23 +511,23 @@ class Static_Archive {
 
 						var range = r.first_date === r.last_date ? r.first_date : r.first_date + ' – ' + r.last_date;
 						var parts = [];
-						if (r.stats.created) parts.push(r.stats.created + ' created');
-						if (r.stats.updated) parts.push(r.stats.updated + ' updated');
-						if (r.stats.unchanged) parts.push(r.stats.unchanged + ' unchanged');
+						if (r.stats.created) parts.push(r.stats.created + ' ' + i18n.created);
+						if (r.stats.updated) parts.push(r.stats.updated + ' ' + i18n.updated);
+						if (r.stats.unchanged) parts.push(r.stats.unchanged + ' ' + i18n.unchanged);
 						log(r.processed + '/' + r.total + ' (' + range + '): ' + parts.join(', '));
 
 						if (r.has_more) {
 							generateBatch(r.next_offset);
 						} else {
-							log('Generating indexes and year archives…');
-							log('Done!');
+							log(i18n.generatingIndexes);
+							log(i18n.done);
 							running = false;
 							generateBtn.disabled = false;
 							verify();
 						}
 					})
 					.catch(function(err) {
-						log('Error: ' + err.message);
+						log(i18n.errorPrefix + ' ' + err.message);
 						running = false;
 						generateBtn.disabled = false;
 					});
@@ -497,7 +541,7 @@ class Static_Archive {
 				progressEl.style.display = 'block';
 				barEl.style.width = '0%';
 				barEl.textContent = '';
-				log('Starting full generation...');
+				log(i18n.starting);
 				generateBatch(0);
 			});
 
@@ -510,7 +554,7 @@ class Static_Archive {
 			var deleteLogEl = document.getElementById('static-archive-delete-log');
 
 			deleteAllBtn.addEventListener('click', function() {
-				if ( ! window.confirm('Delete all generated archive files? This cannot be undone, but you can regenerate them at any time.') ) {
+				if ( ! window.confirm(i18n.confirmDelete) ) {
 					return;
 				}
 				deleteAllBtn.disabled = true;
@@ -519,15 +563,16 @@ class Static_Archive {
 					.then(function(r) { return r.json(); })
 					.then(function(data) {
 						if (!data.success) {
-							deleteLogEl.textContent = 'Error: ' + (data.data || 'Unknown error');
+							deleteLogEl.textContent = i18n.errorPrefix + ' ' + (data.data || i18n.unknownError);
 						} else {
-							deleteLogEl.textContent = 'Deleted ' + data.data.deleted + ' file' + (data.data.deleted === 1 ? '' : 's') + '.';
+							var tpl = data.data.deleted === 1 ? i18n.deletedOne : i18n.deletedMany;
+							deleteLogEl.textContent = tpl.replace('%d', data.data.deleted);
 							verify();
 						}
 						deleteAllBtn.disabled = false;
 					})
 					.catch(function(err) {
-						deleteLogEl.textContent = 'Error: ' + err.message;
+						deleteLogEl.textContent = i18n.errorPrefix + ' ' + err.message;
 						deleteAllBtn.disabled = false;
 					});
 			});
@@ -544,7 +589,7 @@ class Static_Archive {
 		check_ajax_referer( 'static_archive' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( 'Permission denied.' );
+			wp_send_json_error( __( 'Permission denied.', 'static-archive' ) );
 		}
 
 		$offset    = isset( $_GET['offset'] ) ? absint( $_GET['offset'] ) : 0;
@@ -561,7 +606,7 @@ class Static_Archive {
 		check_ajax_referer( 'static_archive' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( 'Permission denied.' );
+			wp_send_json_error( __( 'Permission denied.', 'static-archive' ) );
 		}
 
 		$generator = new Static_Archive_Generator();
@@ -577,7 +622,7 @@ class Static_Archive {
 		check_ajax_referer( 'static_archive' );
 
 		if ( ! current_user_can( 'manage_options' ) ) {
-			wp_send_json_error( 'Permission denied.' );
+			wp_send_json_error( __( 'Permission denied.', 'static-archive' ) );
 		}
 
 		$generator = new Static_Archive_Generator();
