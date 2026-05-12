@@ -231,16 +231,34 @@ class Static_Archive_Generator {
 
 		$content = $wp_post->post_content;
 
-		$data                     = array(
+		/**
+		 * Filter the HTML body saved for a post.
+		 *
+		 * @param string                   $html      HTML body.
+		 * @param WP_Post                  $wp_post   Post object.
+		 * @param Static_Archive_Generator $generator Generator instance.
+		 */
+		$content_html = apply_filters( 'static_archive_post_html', $content, $wp_post, $this );
+
+		/**
+		 * Filter the Markdown body saved for a post.
+		 *
+		 * @param string|null              $markdown  Markdown body, or null to derive from HTML.
+		 * @param WP_Post                  $wp_post   Post object.
+		 * @param Static_Archive_Generator $generator Generator instance.
+		 * @param string                   $html      Filtered HTML body.
+		 */
+		$content_markdown = apply_filters( 'static_archive_post_markdown', null, $wp_post, $this, $content_html );
+
+		$data = array(
 			'title'            => $wp_post->post_title,
 			'page_title'       => $this->get_display_title( $wp_post ),
-			'content_html'     => $this->filter_post_html( $content, $wp_post ),
-			'content_markdown' => null,
+			'content_html'     => $content_html,
+			'content_markdown' => $content_markdown,
 			'date_ts'          => $date_ts,
 			'modified_ts'      => $modified_ts,
 			'author'           => get_the_author_meta( 'display_name', $wp_post->post_author ),
 		);
-		$data['content_markdown'] = $this->filter_post_markdown( null, $wp_post, $data['content_html'] );
 
 		$data['title']        = isset( $data['title'] ) ? (string) $data['title'] : '';
 		$data['page_title']   = isset( $data['page_title'] ) ? (string) $data['page_title'] : $data['title'];
@@ -253,50 +271,6 @@ class Static_Archive_Generator {
 		$data['author']      = isset( $data['author'] ) ? (string) $data['author'] : '';
 
 		return $data;
-	}
-
-	/**
-	 * Filter the HTML body for a post archive file.
-	 *
-	 * @param string  $html    Default post HTML body.
-	 * @param WP_Post $wp_post Post object.
-	 * @return string
-	 */
-	private function filter_post_html( $html, $wp_post ) {
-		/**
-		 * Filter the HTML body saved for a post.
-		 *
-		 * @param string                   $html      HTML body.
-		 * @param WP_Post                  $wp_post   Post object.
-		 * @param Static_Archive_Generator $generator Generator instance.
-		 */
-		$html = apply_filters( 'static_archive_post_html', $html, $wp_post, $this );
-
-		return (string) $html;
-	}
-
-	/**
-	 * Filter the Markdown body for a post archive file.
-	 *
-	 * Return null to let Static Archive derive Markdown from the filtered HTML.
-	 *
-	 * @param string|null $markdown Default Markdown body, or null to derive.
-	 * @param WP_Post     $wp_post  Post object.
-	 * @param string      $html     Filtered HTML body.
-	 * @return string|null
-	 */
-	private function filter_post_markdown( $markdown, $wp_post, $html ) {
-		/**
-		 * Filter the Markdown body saved for a post.
-		 *
-		 * @param string|null              $markdown  Markdown body, or null to derive from HTML.
-		 * @param WP_Post                  $wp_post   Post object.
-		 * @param Static_Archive_Generator $generator Generator instance.
-		 * @param string                   $html      Filtered HTML body.
-		 */
-		$markdown = apply_filters( 'static_archive_post_markdown', $markdown, $wp_post, $this, $html );
-
-		return null === $markdown ? null : (string) $markdown;
 	}
 
 	/**
