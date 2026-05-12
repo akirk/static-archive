@@ -11,6 +11,38 @@ $GLOBALS['_test_options']      = array();
 $GLOBALS['_test_page_by_path'] = array();
 $GLOBALS['_test_page_uri']     = array();
 $GLOBALS['_test_posts']        = array();
+$GLOBALS['_test_filters']      = array();
+
+if ( ! function_exists( 'add_filter' ) ) {
+	function add_filter( $hook_name, $callback, $priority = 10, $accepted_args = 1 ) {
+		$GLOBALS['_test_filters'][ $hook_name ][ $priority ][] = array(
+			'callback'      => $callback,
+			'accepted_args' => $accepted_args,
+		);
+		return true;
+	}
+}
+
+if ( ! function_exists( 'apply_filters' ) ) {
+	function apply_filters( $hook_name, $value, ...$args ) {
+		if ( empty( $GLOBALS['_test_filters'][ $hook_name ] ) ) {
+			return $value;
+		}
+
+		ksort( $GLOBALS['_test_filters'][ $hook_name ] );
+		foreach ( $GLOBALS['_test_filters'][ $hook_name ] as $callbacks ) {
+			foreach ( $callbacks as $callback ) {
+				$accepted = max( 1, (int) $callback['accepted_args'] );
+				$value    = call_user_func_array(
+					$callback['callback'],
+					array_slice( array_merge( array( $value ), $args ), 0, $accepted )
+				);
+			}
+		}
+
+		return $value;
+	}
+}
 
 if ( ! function_exists( 'get_option' ) ) {
 	function get_option( $option, $default = false ) {
@@ -42,6 +74,12 @@ if ( ! function_exists( 'get_bloginfo' ) ) {
 if ( ! function_exists( 'get_locale' ) ) {
 	function get_locale() {
 		return 'en_US';
+	}
+}
+
+if ( ! function_exists( 'get_the_author_meta' ) ) {
+	function get_the_author_meta( $field, $user_id = false ) {
+		return 'Test Author';
 	}
 }
 
@@ -85,6 +123,34 @@ if ( ! function_exists( 'get_page_uri' ) ) {
 if ( ! function_exists( 'get_post' ) ) {
 	function get_post( $post_id ) {
 		return $GLOBALS['_test_posts'][ $post_id ] ?? null;
+	}
+}
+
+if ( ! function_exists( 'get_post_types' ) ) {
+	function get_post_types( $args = array(), $output = 'names' ) {
+		$types = array(
+			'post' => (object) array(
+				'name'   => 'post',
+				'public' => true,
+				'labels' => (object) array( 'name' => 'Posts' ),
+			),
+			'page' => (object) array(
+				'name'   => 'page',
+				'public' => true,
+				'labels' => (object) array( 'name' => 'Pages' ),
+			),
+		);
+
+		if ( isset( $args['public'] ) ) {
+			$types = array_filter(
+				$types,
+				function ( $type ) use ( $args ) {
+					return (bool) $type->public === (bool) $args['public'];
+				}
+			);
+		}
+
+		return 'objects' === $output ? $types : array_keys( $types );
 	}
 }
 

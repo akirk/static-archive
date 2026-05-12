@@ -41,15 +41,94 @@ class Static_Archive_Generator {
 	 * Get the configured post types.
 	 */
 	public static function get_post_types() {
-		return get_option( 'static_archive_post_types', array( 'post', 'page' ) );
+		$post_types = get_option( 'static_archive_post_types', false );
+		if ( false === $post_types ) {
+			return self::get_default_post_types();
+		}
+
+		return self::normalize_post_types( $post_types );
+	}
+
+	/**
+	 * Get the default selected post types.
+	 *
+	 * @return string[]
+	 */
+	public static function get_default_post_types() {
+		$post_types = array();
+
+		/**
+		 * Filter post types available to Static Archive.
+		 *
+		 * When no explicit Static Archive setting has been saved yet, these are
+		 * also selected by default. After settings are saved, the saved selection
+		 * wins, including an empty selection.
+		 *
+		 * @param string[] $post_types Post type names.
+		 */
+		$post_types = apply_filters( 'static_archive_post_types', $post_types );
+
+		return self::normalize_post_types( $post_types );
+	}
+
+	/**
+	 * Add Static Archive's built-in post types.
+	 *
+	 * Registered on the static_archive_post_types filter by the plugin bootstrap
+	 * so core post/page support uses the same integration path as other plugins.
+	 *
+	 * @param string[] $post_types Post type names.
+	 * @return string[]
+	 */
+	public static function add_builtin_post_types( $post_types ) {
+		$post_types   = self::normalize_post_types( $post_types );
+		$post_types[] = 'post';
+		$post_types[] = 'page';
+
+		return self::normalize_post_types( $post_types );
+	}
+
+	/**
+	 * Get all post types available in the settings UI.
+	 *
+	 * @return string[]
+	 */
+	public static function get_available_post_types() {
+		$post_types = array();
+		if ( function_exists( 'get_post_types' ) ) {
+			$post_types = get_post_types( array( 'public' => true ), 'names' );
+		}
+
+		if ( ! is_array( $post_types ) ) {
+			$post_types = array();
+		}
+
+		$post_types = apply_filters( 'static_archive_post_types', array_values( $post_types ) );
+
+		return array_values( array_diff( self::normalize_post_types( $post_types ), array( 'attachment' ) ) );
+	}
+
+	/**
+	 * Normalize a post type list.
+	 *
+	 * @param mixed $post_types Raw post type list.
+	 * @return string[]
+	 */
+	private static function normalize_post_types( $post_types ) {
+		if ( ! is_array( $post_types ) ) {
+			return array();
+		}
+		$post_types = array_map( 'strval', $post_types );
+		$post_types = array_filter( array_map( 'trim', $post_types ) );
+		return array_values( array_unique( $post_types ) );
 	}
 
 	public function should_output_html() {
-		return 'markdown' !== $this->output_format;
+		return in_array( $this->output_format, array( 'html', 'both' ), true );
 	}
 
 	public function should_output_markdown() {
-		return 'html' !== $this->output_format;
+		return in_array( $this->output_format, array( 'markdown', 'both' ), true );
 	}
 
 	/**
@@ -151,6 +230,131 @@ class Static_Archive_Generator {
 	}
 
 	/**
+	 * Get archive data for a real WordPress post.
+	 *
+	 * Renderers receive the raw post_content as the starting HTML value. Static
+	 * Archive registers built-in render filters for posts and pages; other
+	 * plugins can replace either body format while keeping Static Archive's
+	 * normal publish/update/delete handling for that post ID.
+	 *
+	 * @param WP_Post $wp_post Post object.
+	 * @return array Archive data.
+	 */
+	public function get_post_archive_data( $wp_post ) {
+		$date_ts     = ! empty( $wp_post->post_date ) ? strtotime( $wp_post->post_date ) : time();
+		$date_ts     = $date_ts ? $date_ts : time();
+		$modified_ts = ! empty( $wp_post->post_modified ) ? strtotime( $wp_post->post_modified ) : $date_ts;
+		$modified_ts = $modified_ts ? $modified_ts : $date_ts;
+
+		$content = $wp_post->post_content;
+
+		$data                     = array(
+			'title'            => $wp_post->post_title,
+			'page_title'       => $this->get_display_title( $wp_post ),
+			'content_html'     => $this->filter_post_html( $content, $wp_post ),
+			'content_markdown' => null,
+			'date_ts'          => $date_ts,
+			'modified_ts'      => $modified_ts,
+			'author'           => get_the_author_meta( 'display_name', $wp_post->post_author ),
+		);
+		$data['content_markdown'] = $this->filter_post_markdown( null, $wp_post, $data['content_html'] );
+
+		$data['title']        = isset( $data['title'] ) ? (string) $data['title'] : '';
+		$data['page_title']   = isset( $data['page_title'] ) ? (string) $data['page_title'] : $data['title'];
+		$data['content_html'] = isset( $data['content_html'] ) ? (string) $data['content_html'] : '';
+		if ( array_key_exists( 'content_markdown', $data ) && null !== $data['content_markdown'] ) {
+			$data['content_markdown'] = (string) $data['content_markdown'];
+		}
+		$data['date_ts']     = isset( $data['date_ts'] ) && $data['date_ts'] ? (int) $data['date_ts'] : $date_ts;
+		$data['modified_ts'] = isset( $data['modified_ts'] ) && $data['modified_ts'] ? (int) $data['modified_ts'] : $modified_ts;
+		$data['author']      = isset( $data['author'] ) ? (string) $data['author'] : '';
+
+		return $data;
+	}
+
+	/**
+	 * Filter the HTML body for a post archive file.
+	 *
+	 * @param string  $html    Default post HTML body.
+	 * @param WP_Post $wp_post Post object.
+	 * @return string
+	 */
+	private function filter_post_html( $html, $wp_post ) {
+		/**
+		 * Filter the HTML body saved for a post.
+		 *
+		 * @param string                   $html      HTML body.
+		 * @param WP_Post                  $wp_post   Post object.
+		 * @param Static_Archive_Generator $generator Generator instance.
+		 */
+		$html = apply_filters( 'static_archive_post_html', $html, $wp_post, $this );
+
+		return (string) $html;
+	}
+
+	/**
+	 * Filter the Markdown body for a post archive file.
+	 *
+	 * Return null to let Static Archive derive Markdown from the filtered HTML.
+	 *
+	 * @param string|null $markdown Default Markdown body, or null to derive.
+	 * @param WP_Post     $wp_post  Post object.
+	 * @param string      $html     Filtered HTML body.
+	 * @return string|null
+	 */
+	private function filter_post_markdown( $markdown, $wp_post, $html ) {
+		/**
+		 * Filter the Markdown body saved for a post.
+		 *
+		 * @param string|null              $markdown  Markdown body, or null to derive from HTML.
+		 * @param WP_Post                  $wp_post   Post object.
+		 * @param Static_Archive_Generator $generator Generator instance.
+		 * @param string                   $html      Filtered HTML body.
+		 */
+		$markdown = apply_filters( 'static_archive_post_markdown', $markdown, $wp_post, $this, $html );
+
+		return null === $markdown ? null : (string) $markdown;
+	}
+
+	/**
+	 * Render the HTML body for Static Archive's built-in post/page support.
+	 *
+	 * @param string  $html    Raw or previously filtered HTML body.
+	 * @param WP_Post $wp_post Post object.
+	 * @return string
+	 */
+	public static function render_builtin_post_html( $html, $wp_post ) {
+		if ( ! in_array( $wp_post->post_type, array( 'post', 'page' ), true ) ) {
+			return $html;
+		}
+		if ( (string) $html !== (string) $wp_post->post_content ) {
+			return $html;
+		}
+
+		return apply_filters( 'the_content', $wp_post->post_content );
+	}
+
+	/**
+	 * Render the Markdown body for Static Archive's built-in post/page support.
+	 *
+	 * @param string|null              $markdown  Markdown body, or null.
+	 * @param WP_Post                  $wp_post   Post object.
+	 * @param Static_Archive_Generator $generator Generator instance.
+	 * @param string                   $html      Filtered HTML body.
+	 * @return string|null
+	 */
+	public static function render_builtin_post_markdown( $markdown, $wp_post, $generator, $html ) {
+		if ( ! in_array( $wp_post->post_type, array( 'post', 'page' ), true ) ) {
+			return $markdown;
+		}
+		if ( null !== $markdown ) {
+			return $markdown;
+		}
+
+		return $generator->html_to_markdown( $html );
+	}
+
+	/**
 	 * Write a file, returning 'created', 'updated', or 'unchanged'.
 	 */
 	public function write_file( $file, $content, $mtime = 0 ) {
@@ -183,7 +387,12 @@ class Static_Archive_Generator {
 			return 'skipped';
 		}
 
-		$mtime = strtotime( $wp_post->post_modified );
+		$post_data = $this->get_post_archive_data( $wp_post );
+		if ( false === $post_data ) {
+			return 'skipped';
+		}
+
+		$mtime = $post_data['modified_ts'];
 
 		// Get adjacent posts for navigation (only for post type).
 		$prev_link = '';
@@ -212,15 +421,15 @@ class Static_Archive_Generator {
 		}
 
 		// Render content.
-		$content = apply_filters( 'the_content', $wp_post->post_content );
+		$content = $post_data['content_html'];
 		$content = $this->rewrite_urls( $content, dirname( $this->get_post_file_path( $wp_post ) ) );
 
 		// Template variables.
-		$post_title       = $wp_post->post_title;
-		$page_title       = $this->get_display_title( $wp_post );
-		$post_date        = date_i18n( get_option( 'date_format' ), strtotime( $wp_post->post_date ) );
-		$post_date_iso    = gmdate( 'Y-m-d', strtotime( $wp_post->post_date ) );
-		$post_author      = get_the_author_meta( 'display_name', $wp_post->post_author );
+		$post_title       = $post_data['title'];
+		$page_title       = $post_data['page_title'];
+		$post_date        = date_i18n( get_option( 'date_format' ), $post_data['date_ts'] );
+		$post_date_iso    = gmdate( 'Y-m-d', $post_data['date_ts'] );
+		$post_author      = $post_data['author'];
 		$blog_name        = $this->blog_name;
 		$blog_description = $this->blog_description;
 		$lang             = $this->lang;
@@ -242,7 +451,9 @@ class Static_Archive_Generator {
 		}
 
 		if ( $this->should_output_markdown() ) {
-			$content_md = $this->html_to_markdown( $content );
+			$content_md = null === $post_data['content_markdown']
+				? $this->html_to_markdown( $content )
+				: $post_data['content_markdown'];
 			ob_start();
 			include dirname( __DIR__ ) . '/templates/post.md.php';
 			$result = $this->write_file( $this->get_post_file_path( $wp_post, 'md' ), ob_get_clean(), $mtime );
@@ -279,6 +490,10 @@ class Static_Archive_Generator {
 	 * Generate the main index listing all posts, with a year nav at top.
 	 */
 	public function generate_index() {
+		if ( empty( $this->post_types ) || ( ! $this->should_output_html() && ! $this->should_output_markdown() ) ) {
+			return;
+		}
+
 		$posts_query = new WP_Query(
 			array(
 				'post_type'      => $this->post_types,
@@ -296,34 +511,41 @@ class Static_Archive_Generator {
 		$pages         = array();
 		$authors       = array();
 		foreach ( $posts_query->posts as $wp_post ) {
-			$author = get_the_author_meta( 'display_name', $wp_post->post_author );
+			$post_data = $this->get_post_archive_data( $wp_post );
+			if ( false === $post_data ) {
+				continue;
+			}
+
+			$author = $post_data['author'];
 
 			if ( 'page' === $wp_post->post_type ) {
 				if ( $front_page_id && (int) $wp_post->ID === $front_page_id ) {
 					$front_page = array(
-						'title' => $this->get_display_title( $wp_post ),
+						'title' => $post_data['page_title'],
 						'href'  => $this->get_post_relative_path( $wp_post ),
 					);
 					continue;
 				}
 				$pages[] = array(
-					'title' => $this->get_display_title( $wp_post ),
+					'title' => $post_data['page_title'],
 					'href'  => $this->get_post_relative_path( $wp_post ),
 				);
 				continue;
 			}
 
-			$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
+			$year = gmdate( 'Y', $post_data['date_ts'] );
 
 			$years[ $year ][] = array(
-				'title'    => $this->get_display_title( $wp_post ),
+				'title'    => $post_data['page_title'],
 				'href'     => $this->get_post_relative_path( $wp_post ),
-				'date'     => date_i18n( 'j. F', strtotime( $wp_post->post_date ) ),
-				'date_iso' => gmdate( 'Y-m-d', strtotime( $wp_post->post_date ) ),
+				'date'     => date_i18n( 'j. F', $post_data['date_ts'] ),
+				'date_iso' => gmdate( 'Y-m-d', $post_data['date_ts'] ),
 				'author'   => $author,
 			);
 
-			$authors[ $author ] = true;
+			if ( $author ) {
+				$authors[ $author ] = true;
+			}
 		}
 
 		$dated_posts = array_filter(
@@ -363,6 +585,10 @@ class Static_Archive_Generator {
 	 * Generate year archive pages for all years that have posts.
 	 */
 	public function generate_year_archives() {
+		if ( ! $this->should_output_html() && ! $this->should_output_markdown() ) {
+			return;
+		}
+
 		$dated_types = $this->get_dated_post_types();
 		if ( empty( $dated_types ) ) {
 			return;
@@ -394,6 +620,10 @@ class Static_Archive_Generator {
 	 * Generate both ASC and DESC year archive pages.
 	 */
 	public function generate_year_archive( $year, $year_posts = null ) {
+		if ( ! $this->should_output_html() && ! $this->should_output_markdown() ) {
+			return;
+		}
+
 		$dated_types = $this->get_dated_post_types();
 
 		if ( null === $year_posts ) {
@@ -419,18 +649,29 @@ class Static_Archive_Generator {
 		$from_dir = $this->output_dir . '/' . $year;
 		$entries  = array();
 		foreach ( $year_posts as $wp_post ) {
-			$content = apply_filters( 'the_content', $wp_post->post_content );
+			$post_data = $this->get_post_archive_data( $wp_post );
+			if ( false === $post_data ) {
+				continue;
+			}
+
+			$content = $post_data['content_html'];
 			$content = $this->rewrite_urls( $content, $from_dir );
 
 			$entries[] = array(
-				'title'      => $wp_post->post_title,
-				'date'       => date_i18n( get_option( 'date_format' ), strtotime( $wp_post->post_date ) ),
-				'date_iso'   => gmdate( 'Y-m-d', strtotime( $wp_post->post_date ) ),
-				'author'     => get_the_author_meta( 'display_name', $wp_post->post_author ),
+				'title'      => $post_data['title'],
+				'date'       => date_i18n( get_option( 'date_format' ), $post_data['date_ts'] ),
+				'date_iso'   => gmdate( 'Y-m-d', $post_data['date_ts'] ),
+				'author'     => $post_data['author'],
 				'content'    => $content,
-				'content_md' => $this->should_output_markdown() ? $this->html_to_markdown( $content ) : '',
-				'href'       => $this->filename( $wp_post->post_type . '-' . $wp_post->ID ),
+				'content_md' => $this->should_output_markdown()
+					? ( null === $post_data['content_markdown'] ? $this->html_to_markdown( $content ) : $post_data['content_markdown'] )
+					: '',
+				'href'       => basename( $this->get_post_relative_path( $wp_post ) ),
 			);
+		}
+
+		if ( empty( $entries ) ) {
+			return;
 		}
 
 		$filenames        = $this->get_year_archive_filenames();
@@ -543,6 +784,16 @@ class Static_Archive_Generator {
 	 * Generate all posts and the index.
 	 */
 	public function generate_all( $progress = null ) {
+		if ( empty( $this->post_types ) || ( ! $this->should_output_html() && ! $this->should_output_markdown() ) ) {
+			return array(
+				'created'   => 0,
+				'updated'   => 0,
+				'unchanged' => 0,
+				'skipped'   => 0,
+				'total'     => 0,
+			);
+		}
+
 		$this->copy_stylesheet();
 
 		$post_ids = get_posts(
@@ -585,6 +836,24 @@ class Static_Archive_Generator {
 	 * Generate a batch of posts by offset.
 	 */
 	public function generate_batch( $offset, $limit = 50 ) {
+		if ( empty( $this->post_types ) || ( ! $this->should_output_html() && ! $this->should_output_markdown() ) ) {
+			return array(
+				'stats'       => array(
+					'created'   => 0,
+					'updated'   => 0,
+					'unchanged' => 0,
+					'skipped'   => 0,
+				),
+				'has_more'    => false,
+				'next_offset' => $offset,
+				'total'       => 0,
+				'processed'   => 0,
+				'first_date'  => '',
+				'last_date'   => '',
+				'phase'       => 'indexes',
+			);
+		}
+
 		$post_ids = get_posts(
 			array(
 				'post_type'      => $this->post_types,
@@ -654,6 +923,17 @@ class Static_Archive_Generator {
 	 * Verify the archive: find missing, orphaned, and outdated files.
 	 */
 	public function verify() {
+		if ( empty( $this->post_types ) || ( ! $this->should_output_html() && ! $this->should_output_markdown() ) ) {
+			return array(
+				'missing'        => array(),
+				'missing_capped' => false,
+				'orphaned'       => array(),
+				'outdated'       => array(),
+				'total_posts'    => 0,
+				'total_archived' => 0,
+			);
+		}
+
 		$all_posts = get_posts(
 			array(
 				'post_type'      => $this->post_types,
