@@ -300,6 +300,26 @@ class Static_Archive_Generator {
 	}
 
 	/**
+	 * Build an HTML navigation link for an adjacent post.
+	 *
+	 * @param WP_Post|null $wp_post   Adjacent post object, or null.
+	 * @param string       $direction Navigation direction: previous or next.
+	 * @return string
+	 */
+	private function get_post_navigation_link( $wp_post, $direction ) {
+		if ( ! $wp_post ) {
+			return '';
+		}
+
+		$nav_title = $this->get_display_title( $wp_post );
+		if ( 'previous' === $direction ) {
+			return '<a href="../' . esc_attr( $this->get_post_relative_path( $wp_post ) ) . '">&larr; ' . esc_html( $nav_title ) . '</a>';
+		}
+
+		return '<a href="../' . esc_attr( $this->get_post_relative_path( $wp_post ) ) . '">' . esc_html( $nav_title ) . ' &rarr;</a>';
+	}
+
+	/**
 	 * Write a file, returning 'created', 'updated', or 'unchanged'.
 	 */
 	public function write_file( $file, $content, $mtime = 0 ) {
@@ -339,31 +359,26 @@ class Static_Archive_Generator {
 
 		$mtime = $post_data['modified_ts'];
 
-		// Get adjacent posts for navigation (only for post type).
-		$prev_link = '';
-		$next_link = '';
-		if ( 'post' === $wp_post->post_type ) {
-			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
-			$original_post = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
-			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
-			$GLOBALS['post'] = $wp_post;
-			setup_postdata( $wp_post );
+		/**
+		 * Filter the previous post used for static archive navigation.
+		 *
+		 * @param WP_Post|null             $previous  Previous post object, or null.
+		 * @param WP_Post                  $wp_post   Current post object.
+		 * @param Static_Archive_Generator $generator Generator instance.
+		 */
+		$prev = apply_filters( 'static_archive_post_previous_post', null, $wp_post, $this );
 
-			$prev = get_previous_post();
-			$next = get_next_post();
+		/**
+		 * Filter the next post used for static archive navigation.
+		 *
+		 * @param WP_Post|null             $next      Next post object, or null.
+		 * @param WP_Post                  $wp_post   Current post object.
+		 * @param Static_Archive_Generator $generator Generator instance.
+		 */
+		$next = apply_filters( 'static_archive_post_next_post', null, $wp_post, $this );
 
-			$prev_nav_title = $prev ? $this->get_display_title( $prev ) : '';
-			$next_nav_title = $next ? $this->get_display_title( $next ) : '';
-
-			$prev_link = $prev ? '<a href="../' . esc_attr( $this->get_post_relative_path( $prev ) ) . '">&larr; ' . esc_html( $prev_nav_title ) . '</a>' : '';
-			$next_link = $next ? '<a href="../' . esc_attr( $this->get_post_relative_path( $next ) ) . '">' . esc_html( $next_nav_title ) . ' &rarr;</a>' : '';
-
-			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restoring original value.
-			$GLOBALS['post'] = $original_post;
-			if ( $original_post ) {
-				setup_postdata( $original_post );
-			}
-		}
+		$prev_link = $this->get_post_navigation_link( $prev, 'previous' );
+		$next_link = $this->get_post_navigation_link( $next, 'next' );
 
 		// Render content.
 		$content = $post_data['content_html'];

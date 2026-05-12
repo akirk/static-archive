@@ -13,6 +13,8 @@ class GeneratorTest extends TestCase {
 		$GLOBALS['_test_page_uri']     = array();
 		$GLOBALS['_test_posts']        = array();
 		$GLOBALS['_test_filters']      = array();
+		$GLOBALS['_test_previous_post'] = null;
+		$GLOBALS['_test_next_post']     = null;
 		$this->tmpDir                  = sys_get_temp_dir() . '/static-archive-test';
 		$this->register_builtin_static_archive_filters();
 		if ( is_dir( $this->tmpDir ) ) {
@@ -468,6 +470,51 @@ class GeneratorTest extends TestCase {
 
 		$this->assertSame( '<p>Rendered body</p>', $data['content_html'] );
 		$this->assertSame( 'Rendered body', $data['content_markdown'] );
+	}
+
+	public function test_builtin_post_filters_provide_adjacent_posts_for_posts() {
+		$previous = $this->make_post(
+			array(
+				'ID'         => 11,
+				'post_title' => 'Previous',
+			)
+		);
+		$next     = $this->make_post(
+			array(
+				'ID'         => 13,
+				'post_title' => 'Next',
+			)
+		);
+		$post     = $this->make_post(
+			array(
+				'ID'        => 12,
+				'post_type' => 'post',
+			)
+		);
+
+		$GLOBALS['_test_previous_post'] = $previous;
+		$GLOBALS['_test_next_post']     = $next;
+
+		$this->assertSame( $previous, apply_filters( 'static_archive_post_previous_post', null, $post, $this->generator ) );
+		$this->assertSame( $next, apply_filters( 'static_archive_post_next_post', null, $post, $this->generator ) );
+	}
+
+	public function test_builtin_post_filters_skip_adjacent_posts_for_pages() {
+		$GLOBALS['_test_previous_post'] = $this->make_post(
+			array(
+				'ID'         => 11,
+				'post_title' => 'Previous',
+			)
+		);
+		$page                           = $this->make_post(
+			array(
+				'ID'        => 12,
+				'post_type' => 'page',
+			)
+		);
+
+		$this->assertNull( apply_filters( 'static_archive_post_previous_post', null, $page, $this->generator ) );
+		$this->assertNull( apply_filters( 'static_archive_post_next_post', null, $page, $this->generator ) );
 	}
 
 	// -------------------------------------------------------------------------

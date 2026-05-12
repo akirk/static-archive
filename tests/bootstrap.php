@@ -12,6 +12,8 @@ $GLOBALS['_test_page_by_path'] = array();
 $GLOBALS['_test_page_uri']     = array();
 $GLOBALS['_test_posts']        = array();
 $GLOBALS['_test_filters']      = array();
+$GLOBALS['_test_previous_post'] = null;
+$GLOBALS['_test_next_post']     = null;
 
 if ( ! function_exists( 'add_filter' ) ) {
 	function add_filter( $hook_name, $callback, $priority = 10, $accepted_args = 1 ) {
@@ -123,6 +125,24 @@ if ( ! function_exists( 'get_page_uri' ) ) {
 if ( ! function_exists( 'get_post' ) ) {
 	function get_post( $post_id ) {
 		return $GLOBALS['_test_posts'][ $post_id ] ?? null;
+	}
+}
+
+if ( ! function_exists( 'setup_postdata' ) ) {
+	function setup_postdata( $post ) {
+		return true;
+	}
+}
+
+if ( ! function_exists( 'get_previous_post' ) ) {
+	function get_previous_post() {
+		return $GLOBALS['_test_previous_post'];
+	}
+}
+
+if ( ! function_exists( 'get_next_post' ) ) {
+	function get_next_post() {
+		return $GLOBALS['_test_next_post'];
 	}
 }
 

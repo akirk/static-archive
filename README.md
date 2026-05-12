@@ -85,7 +85,8 @@ built-in HTML and Markdown output formats.
 Static Archive uses the same filters for its own built-in `post` and `page`
 support. It registers `post` and `page` through `static_archive_post_types`,
 applies `the_content` through `static_archive_post_html`, and derives Markdown
-through `static_archive_post_markdown`.
+through `static_archive_post_markdown`. It also provides previous/next
+navigation for posts through the adjacent post filters.
 
 ### Add an Archive Post Type
 
@@ -158,6 +159,29 @@ add_filter(
 
 These render filters are format-specific so a plugin can provide exactly the
 formats it understands. Future output formats can follow the same pattern.
+
+### Adjacent Navigation
+
+Use `static_archive_post_previous_post` and `static_archive_post_next_post` to
+provide previous and next posts for HTML navigation. Static Archive's built-in
+post/page integration provides these only for the `post` post type.
+
+```php
+add_filter(
+    'static_archive_post_previous_post',
+    function( ?WP_Post $previous, WP_Post $post, Static_Archive_Generator $generator ): ?WP_Post {
+        if ( 'my_private_post_type' !== $post->post_type ) {
+            return $previous;
+        }
+
+        return my_plugin_get_previous_archive_post( $post );
+    },
+    10,
+    3
+);
+```
+
+Return `null` when no adjacent post should be linked.
 
 ## Features
 
