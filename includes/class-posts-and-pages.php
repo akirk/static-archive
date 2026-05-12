@@ -120,6 +120,7 @@ class Static_Archive_Posts_And_Pages {
 	 */
 	private static function get_adjacent_post( $wp_post, $direction ) {
 		$is_previous = 'previous' === $direction;
+		$date_key    = $is_previous ? 'before' : 'after';
 		$query       = array(
 			'post_type'           => 'post',
 			'post_status'         => 'publish',
@@ -131,9 +132,9 @@ class Static_Archive_Posts_And_Pages {
 			'no_found_rows'       => true,
 			'date_query'          => array(
 				array(
-					$is_previous ? 'before' : 'after' => $wp_post->post_date,
-					'column'                          => 'post_date',
-					'inclusive'                       => false,
+					$date_key   => $wp_post->post_date,
+					'column'    => 'post_date',
+					'inclusive' => false,
 				),
 			),
 		);

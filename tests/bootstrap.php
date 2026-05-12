@@ -154,9 +154,6 @@ if ( ! function_exists( 'get_posts' ) ) {
 		if ( ! empty( $args['exclude'] ) ) {
 			$excluded = array_merge( $excluded, array_map( 'intval', (array) $args['exclude'] ) );
 		}
-		if ( ! empty( $args['post__not_in'] ) ) {
-			$excluded = array_merge( $excluded, array_map( 'intval', (array) $args['post__not_in'] ) );
-		}
 		if ( $excluded ) {
 			$posts = array_filter(
 				$posts,
@@ -194,18 +191,9 @@ if ( ! function_exists( 'get_posts' ) ) {
 			);
 		}
 
-		$limit = $args['posts_per_page'] ?? $args['numberposts'] ?? 5;
+		$limit = $args['posts_per_page'] ?? 5;
 		if ( -1 !== (int) $limit ) {
 			$posts = array_slice( $posts, 0, (int) $limit );
-		}
-
-		if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) {
-			return array_map(
-				function ( $post ) {
-					return (int) $post->ID;
-				},
-				$posts
-			);
 		}
 
 		return $posts;

@@ -77,10 +77,7 @@ class Static_Archive_Generator {
 	 * @return string[]
 	 */
 	public static function get_available_post_types() {
-		$post_types = array();
-		if ( function_exists( 'get_post_types' ) ) {
-			$post_types = get_post_types( array( 'public' => true ), 'names' );
-		}
+		$post_types = get_post_types( array( 'public' => true ), 'names' );
 
 		if ( ! is_array( $post_types ) ) {
 			$post_types = array();
@@ -327,9 +324,6 @@ class Static_Archive_Generator {
 		}
 
 		$post_data = $this->get_post_archive_data( $wp_post );
-		if ( false === $post_data ) {
-			return 'skipped';
-		}
 
 		$mtime = $post_data['modified_ts'];
 
@@ -446,9 +440,6 @@ class Static_Archive_Generator {
 		$authors       = array();
 		foreach ( $posts_query->posts as $wp_post ) {
 			$post_data = $this->get_post_archive_data( $wp_post );
-			if ( false === $post_data ) {
-				continue;
-			}
 
 			$author = $post_data['author'];
 
@@ -584,9 +575,6 @@ class Static_Archive_Generator {
 		$entries  = array();
 		foreach ( $year_posts as $wp_post ) {
 			$post_data = $this->get_post_archive_data( $wp_post );
-			if ( false === $post_data ) {
-				continue;
-			}
 
 			$content = $post_data['content_html'];
 			$content = $this->rewrite_urls( $content, $from_dir );
