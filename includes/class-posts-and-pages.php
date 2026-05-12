@@ -112,27 +112,33 @@ class Static_Archive_Posts_And_Pages {
 	}
 
 	/**
-	 * Get an adjacent post using WordPress' current-post globals.
+	 * Get an adjacent post.
 	 *
 	 * @param WP_Post $wp_post   Current post object.
 	 * @param string  $direction Adjacent direction: previous or next.
 	 * @return WP_Post|null
 	 */
 	private static function get_adjacent_post( $wp_post, $direction ) {
-		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
-		$original_post = isset( $GLOBALS['post'] ) ? $GLOBALS['post'] : null;
-		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Required by setup_postdata().
-		$GLOBALS['post'] = $wp_post;
-		setup_postdata( $wp_post );
+		$is_previous = 'previous' === $direction;
+		$query       = array(
+			'post_type'           => 'post',
+			'post_status'         => 'publish',
+			'posts_per_page'      => 1,
+			'orderby'             => 'date',
+			'order'               => $is_previous ? 'DESC' : 'ASC',
+			'exclude'             => array( $wp_post->ID ),
+			'ignore_sticky_posts' => true,
+			'no_found_rows'       => true,
+			'date_query'          => array(
+				array(
+					$is_previous ? 'before' : 'after' => $wp_post->post_date,
+					'column'                          => 'post_date',
+					'inclusive'                       => false,
+				),
+			),
+		);
+		$posts       = get_posts( $query );
 
-		$adjacent_post = 'previous' === $direction ? get_previous_post() : get_next_post();
-
-		// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- Restoring original value.
-		$GLOBALS['post'] = $original_post;
-		if ( $original_post ) {
-			setup_postdata( $original_post );
-		}
-
-		return $adjacent_post;
+		return empty( $posts ) ? null : $posts[0];
 	}
 }

@@ -12,8 +12,6 @@ $GLOBALS['_test_page_by_path'] = array();
 $GLOBALS['_test_page_uri']     = array();
 $GLOBALS['_test_posts']        = array();
 $GLOBALS['_test_filters']      = array();
-$GLOBALS['_test_previous_post'] = null;
-$GLOBALS['_test_next_post']     = null;
 
 if ( ! function_exists( 'add_filter' ) ) {
 	function add_filter( $hook_name, $callback, $priority = 10, $accepted_args = 1 ) {
@@ -128,21 +126,89 @@ if ( ! function_exists( 'get_post' ) ) {
 	}
 }
 
-if ( ! function_exists( 'setup_postdata' ) ) {
-	function setup_postdata( $post ) {
-		return true;
-	}
-}
+if ( ! function_exists( 'get_posts' ) ) {
+	function get_posts( $args = array() ) {
+		$posts = array_values( $GLOBALS['_test_posts'] );
 
-if ( ! function_exists( 'get_previous_post' ) ) {
-	function get_previous_post() {
-		return $GLOBALS['_test_previous_post'];
-	}
-}
+		if ( ! empty( $args['post_type'] ) ) {
+			$post_types = (array) $args['post_type'];
+			$posts      = array_filter(
+				$posts,
+				function ( $post ) use ( $post_types ) {
+					return in_array( $post->post_type, $post_types, true );
+				}
+			);
+		}
 
-if ( ! function_exists( 'get_next_post' ) ) {
-	function get_next_post() {
-		return $GLOBALS['_test_next_post'];
+		if ( ! empty( $args['post_status'] ) ) {
+			$post_statuses = (array) $args['post_status'];
+			$posts         = array_filter(
+				$posts,
+				function ( $post ) use ( $post_statuses ) {
+					return in_array( $post->post_status, $post_statuses, true );
+				}
+			);
+		}
+
+		$excluded = array();
+		if ( ! empty( $args['exclude'] ) ) {
+			$excluded = array_merge( $excluded, array_map( 'intval', (array) $args['exclude'] ) );
+		}
+		if ( ! empty( $args['post__not_in'] ) ) {
+			$excluded = array_merge( $excluded, array_map( 'intval', (array) $args['post__not_in'] ) );
+		}
+		if ( $excluded ) {
+			$posts = array_filter(
+				$posts,
+				function ( $post ) use ( $excluded ) {
+					return ! in_array( (int) $post->ID, $excluded, true );
+				}
+			);
+		}
+
+		if ( ! empty( $args['date_query'] ) ) {
+			foreach ( $args['date_query'] as $date_query ) {
+				$posts = array_filter(
+					$posts,
+					function ( $post ) use ( $date_query ) {
+						$post_time = strtotime( $post->post_date );
+						if ( isset( $date_query['before'] ) && $post_time >= strtotime( $date_query['before'] ) ) {
+							return false;
+						}
+						if ( isset( $date_query['after'] ) && $post_time <= strtotime( $date_query['after'] ) ) {
+							return false;
+						}
+						return true;
+					}
+				);
+			}
+		}
+
+		if ( empty( $args['orderby'] ) || 'date' === $args['orderby'] ) {
+			usort(
+				$posts,
+				function ( $a, $b ) use ( $args ) {
+					$comparison = strtotime( $a->post_date ) <=> strtotime( $b->post_date );
+					return ( isset( $args['order'] ) && 'DESC' === strtoupper( $args['order'] ) ) ? -$comparison : $comparison;
+				}
+			);
+		}
+
+		$limit = $args['posts_per_page'] ?? $args['numberposts'] ?? 5;
+		if ( -1 !== (int) $limit ) {
+			$posts = array_slice( $posts, 0, (int) $limit );
+		}
+
+		if ( isset( $args['fields'] ) && 'ids' === $args['fields'] ) {
+			return array_map(
+				function ( $post ) {
+					return (int) $post->ID;
+				},
+				$posts
+			);
+		}
+
+		return $posts;
 	}
 }
 
