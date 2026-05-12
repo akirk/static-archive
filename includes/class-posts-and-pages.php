@@ -21,11 +21,14 @@ class Static_Archive_Posts_And_Pages {
 	 * @return string[]
 	 */
 	public static function add_post_types( $post_types ) {
-		$post_types   = self::normalize_post_types( $post_types );
+		if ( ! is_array( $post_types ) ) {
+			$post_types = array();
+		}
+
 		$post_types[] = 'post';
 		$post_types[] = 'page';
 
-		return self::normalize_post_types( $post_types );
+		return $post_types;
 	}
 
 	/**
@@ -74,20 +77,5 @@ class Static_Archive_Posts_And_Pages {
 	 */
 	private static function supports( $wp_post ) {
 		return in_array( $wp_post->post_type, array( 'post', 'page' ), true );
-	}
-
-	/**
-	 * Normalize a post type list.
-	 *
-	 * @param mixed $post_types Raw post type list.
-	 * @return string[]
-	 */
-	private static function normalize_post_types( $post_types ) {
-		if ( ! is_array( $post_types ) ) {
-			return array();
-		}
-		$post_types = array_map( 'strval', $post_types );
-		$post_types = array_filter( array_map( 'trim', $post_types ) );
-		return array_values( array_unique( $post_types ) );
 	}
 }
