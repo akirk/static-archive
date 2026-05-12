@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/includes/class-generator.php';
+require_once __DIR__ . '/includes/class-posts-and-pages.php';
 require_once __DIR__ . '/includes/class-cli.php';
 
 class Static_Archive {
@@ -25,9 +26,7 @@ class Static_Archive {
 		add_action( 'wp_ajax_static_archive_verify', array( $this, 'ajax_verify' ) );
 		add_action( 'wp_ajax_static_archive_delete_all', array( $this, 'ajax_delete_all' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'add_plugin_action_links' ) );
-		add_filter( 'static_archive_post_types', array( 'Static_Archive_Generator', 'add_builtin_post_types' ) );
-		add_filter( 'static_archive_post_html', array( 'Static_Archive_Generator', 'render_builtin_post_html' ), 5, 2 );
-		add_filter( 'static_archive_post_markdown', array( 'Static_Archive_Generator', 'render_builtin_post_markdown' ), 5, 4 );
+		Static_Archive_Posts_And_Pages::register();
 	}
 
 	/**

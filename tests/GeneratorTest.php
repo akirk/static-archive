@@ -36,9 +36,7 @@ class GeneratorTest extends TestCase {
 	}
 
 	private function register_builtin_static_archive_filters(): void {
-		add_filter( 'static_archive_post_types', array( 'Static_Archive_Generator', 'add_builtin_post_types' ) );
-		add_filter( 'static_archive_post_html', array( 'Static_Archive_Generator', 'render_builtin_post_html' ), 5, 2 );
-		add_filter( 'static_archive_post_markdown', array( 'Static_Archive_Generator', 'render_builtin_post_markdown' ), 5, 4 );
+		Static_Archive_Posts_And_Pages::register();
 	}
 
 	private function make_post( array $props ): stdClass {

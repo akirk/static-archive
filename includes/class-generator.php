@@ -72,23 +72,6 @@ class Static_Archive_Generator {
 	}
 
 	/**
-	 * Add Static Archive's built-in post types.
-	 *
-	 * Registered on the static_archive_post_types filter by the plugin bootstrap
-	 * so core post/page support uses the same integration path as other plugins.
-	 *
-	 * @param string[] $post_types Post type names.
-	 * @return string[]
-	 */
-	public static function add_builtin_post_types( $post_types ) {
-		$post_types   = self::normalize_post_types( $post_types );
-		$post_types[] = 'post';
-		$post_types[] = 'page';
-
-		return self::normalize_post_types( $post_types );
-	}
-
-	/**
 	 * Get all post types available in the settings UI.
 	 *
 	 * @return string[]
@@ -314,44 +297,6 @@ class Static_Archive_Generator {
 		$markdown = apply_filters( 'static_archive_post_markdown', $markdown, $wp_post, $this, $html );
 
 		return null === $markdown ? null : (string) $markdown;
-	}
-
-	/**
-	 * Render the HTML body for Static Archive's built-in post/page support.
-	 *
-	 * @param string  $html    Raw or previously filtered HTML body.
-	 * @param WP_Post $wp_post Post object.
-	 * @return string
-	 */
-	public static function render_builtin_post_html( $html, $wp_post ) {
-		if ( ! in_array( $wp_post->post_type, array( 'post', 'page' ), true ) ) {
-			return $html;
-		}
-		if ( (string) $html !== (string) $wp_post->post_content ) {
-			return $html;
-		}
-
-		return apply_filters( 'the_content', $wp_post->post_content );
-	}
-
-	/**
-	 * Render the Markdown body for Static Archive's built-in post/page support.
-	 *
-	 * @param string|null              $markdown  Markdown body, or null.
-	 * @param WP_Post                  $wp_post   Post object.
-	 * @param Static_Archive_Generator $generator Generator instance.
-	 * @param string                   $html      Filtered HTML body.
-	 * @return string|null
-	 */
-	public static function render_builtin_post_markdown( $markdown, $wp_post, $generator, $html ) {
-		if ( ! in_array( $wp_post->post_type, array( 'post', 'page' ), true ) ) {
-			return $markdown;
-		}
-		if ( null !== $markdown ) {
-			return $markdown;
-		}
-
-		return $generator->html_to_markdown( $html );
 	}
 
 	/**

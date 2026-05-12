@@ -194,3 +194,4 @@ if ( ! function_exists( 'wp_delete_file' ) ) {
 }
 
 require_once dirname( __DIR__ ) . '/includes/class-generator.php';
+require_once dirname( __DIR__ ) . '/includes/class-posts-and-pages.php';
