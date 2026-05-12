@@ -76,6 +76,113 @@ wp static-archive verify
 
 On multisite, add `--url=yoursite.example.com` to target a specific site.
 
+## Plugin Integration
+
+Static Archive archives real WordPress posts. Plugins can make additional post
+types available to Static Archive and provide custom generated bodies for the
+built-in HTML and Markdown output formats.
+
+Static Archive uses the same filters for its own built-in `post` and `page`
+support. It registers `post` and `page` through `static_archive_post_types`,
+applies `the_content` through `static_archive_post_html`, and derives Markdown
+through `static_archive_post_markdown`. It also provides previous/next
+navigation for posts through the adjacent post filters.
+
+### Add an Archive Post Type
+
+Use `static_archive_post_types` to add post types that should be available in
+**Tools -> Static Archive**. This is useful for non-public post types that should
+not be exposed on the front end, but should still be included in the portable
+archive.
+
+```php
+add_filter( 'static_archive_post_types', function( array $post_types ): array {
+    $post_types[] = 'my_private_post_type';
+    return $post_types;
+} );
+```
+
+If no Static Archive settings have been saved yet, filtered post types are
+selected by default along with posts and pages. Once settings are saved, the
+saved selection is respected, including an empty post type selection.
+
+### Render HTML
+
+Use `static_archive_post_html` to replace the HTML body written for a post. The
+starting value is the raw `post_content`; Static Archive's built-in post/page
+filter applies `the_content`. The post lifecycle, filename, index updates, and
+year archive updates are still handled by Static Archive.
+
+```php
+add_filter(
+    'static_archive_post_html',
+    function( string $html, WP_Post $post, Static_Archive_Generator $generator ): string {
+        if ( 'my_private_post_type' !== $post->post_type ) {
+            return $html;
+        }
+
+        return '<h2>Custom archive body</h2>';
+    },
+    10,
+    3
+);
+```
+
+The returned string is used as the body content inside Static Archive's normal
+HTML post template.
+
+### Render Markdown
+
+Use `static_archive_post_markdown` to replace the Markdown body written for a
+post. Return `null` to let Static Archive derive Markdown from the filtered HTML
+body.
+
+```php
+add_filter(
+    'static_archive_post_markdown',
+    function(
+        ?string $markdown,
+        WP_Post $post,
+        Static_Archive_Generator $generator,
+        string $html
+    ): ?string {
+        if ( 'my_private_post_type' !== $post->post_type ) {
+            return $markdown;
+        }
+
+        return "## Custom archive body\n\nPlain-text archive content.";
+    },
+    10,
+    4
+);
+```
+
+These render filters are format-specific so a plugin can provide exactly the
+formats it understands. Future output formats can follow the same pattern.
+
+### Adjacent Navigation
+
+Use `static_archive_post_previous_post` and `static_archive_post_next_post` to
+provide previous and next posts for HTML navigation. Static Archive's built-in
+post/page integration provides these only for the `post` post type.
+
+```php
+add_filter(
+    'static_archive_post_previous_post',
+    function( ?WP_Post $previous, WP_Post $post, Static_Archive_Generator $generator ): ?WP_Post {
+        if ( 'my_private_post_type' !== $post->post_type ) {
+            return $previous;
+        }
+
+        return my_plugin_get_previous_archive_post( $post );
+    },
+    10,
+    3
+);
+```
+
+Return `null` when no adjacent post should be linked.
+
 ## Features
 
 - Archive posts, pages, and custom post types

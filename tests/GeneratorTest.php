@@ -12,7 +12,9 @@ class GeneratorTest extends TestCase {
 		$GLOBALS['_test_page_by_path'] = array();
 		$GLOBALS['_test_page_uri']     = array();
 		$GLOBALS['_test_posts']        = array();
+		$GLOBALS['_test_filters']      = array();
 		$this->tmpDir                  = sys_get_temp_dir() . '/static-archive-test';
+		$this->register_builtin_static_archive_filters();
 		if ( is_dir( $this->tmpDir ) ) {
 			$this->removeDir( $this->tmpDir );
 		}
@@ -33,6 +35,10 @@ class GeneratorTest extends TestCase {
 		rmdir( $dir );
 	}
 
+	private function register_builtin_static_archive_filters(): void {
+		Static_Archive_Posts_And_Pages::register();
+	}
+
 	private function make_post( array $props ): stdClass {
 		return (object) array_merge(
 			array(
@@ -41,8 +47,10 @@ class GeneratorTest extends TestCase {
 				'post_excerpt' => '',
 				'post_content' => '',
 				'post_date'    => '2020-06-15 10:00:00',
+				'post_modified' => '2020-06-15 10:00:00',
 				'post_type'    => 'post',
 				'post_status'  => 'publish',
+				'post_author'  => 1,
 			),
 			$props
 		);
@@ -332,6 +340,13 @@ class GeneratorTest extends TestCase {
 		$this->assertTrue( $gen->should_output_markdown() );
 	}
 
+	public function test_should_output_neither_when_none_format() {
+		$GLOBALS['_test_options']['static_archive_output_format'] = 'none';
+		$gen = new Static_Archive_Generator();
+		$this->assertFalse( $gen->should_output_html() );
+		$this->assertFalse( $gen->should_output_markdown() );
+	}
+
 	// -------------------------------------------------------------------------
 	// get_post_types / get_dated_post_types
 	// -------------------------------------------------------------------------
@@ -345,6 +360,46 @@ class GeneratorTest extends TestCase {
 		$this->assertSame( array( 'post', 'page', 'product' ), Static_Archive_Generator::get_post_types() );
 	}
 
+	public function test_get_post_types_filter_can_add_hidden_post_type() {
+		add_filter(
+			'static_archive_post_types',
+			function ( $post_types ) {
+				$post_types[] = 'cb-recipes';
+				return $post_types;
+			}
+		);
+
+		$this->assertSame( array( 'post', 'page', 'cb-recipes' ), Static_Archive_Generator::get_post_types() );
+	}
+
+	public function test_get_post_types_allows_empty_saved_selection() {
+		$GLOBALS['_test_options']['static_archive_post_types'] = array();
+
+		add_filter(
+			'static_archive_post_types',
+			function ( $post_types ) {
+				$post_types[] = 'cb-recipes';
+				return $post_types;
+			}
+		);
+
+		$this->assertSame( array(), Static_Archive_Generator::get_post_types() );
+	}
+
+	public function test_get_available_post_types_includes_filter_added_type() {
+		$GLOBALS['_test_options']['static_archive_post_types'] = array();
+
+		add_filter(
+			'static_archive_post_types',
+			function ( $post_types ) {
+				$post_types[] = 'cb-recipes';
+				return $post_types;
+			}
+		);
+
+		$this->assertSame( array( 'post', 'page', 'cb-recipes' ), Static_Archive_Generator::get_available_post_types() );
+	}
+
 	public function test_get_dated_post_types_excludes_page() {
 		$this->assertSame( array( 'post' ), $this->generator->get_dated_post_types() );
 	}
@@ -353,6 +408,115 @@ class GeneratorTest extends TestCase {
 		$GLOBALS['_test_options']['static_archive_post_types'] = array( 'post', 'page', 'product' );
 		$gen = new Static_Archive_Generator();
 		$this->assertSame( array( 'post', 'product' ), $gen->get_dated_post_types() );
+	}
+
+	public function test_post_archive_filters_can_replace_html_and_markdown() {
+		$post = $this->make_post(
+			array(
+				'ID'           => 42,
+				'post_type'    => 'cb-recipes',
+				'post_title'   => 'Pancakes',
+				'post_content' => 'default body',
+			)
+		);
+
+		add_filter(
+			'static_archive_post_html',
+			function ( $html, $wp_post ) {
+				return 'cb-recipes' === $wp_post->post_type
+					? '<h2>Ingredients</h2><ul><li>Flour</li></ul>'
+					: $html;
+			},
+			10,
+			2
+		);
+		add_filter(
+			'static_archive_post_markdown',
+			function ( $markdown, $wp_post ) {
+				return 'cb-recipes' === $wp_post->post_type
+					? "## Ingredients\n\n- Flour"
+					: $markdown;
+			},
+			10,
+			2
+		);
+
+		$data = $this->generator->get_post_archive_data( $post );
+
+		$this->assertSame( '<h2>Ingredients</h2><ul><li>Flour</li></ul>', $data['content_html'] );
+		$this->assertSame( "## Ingredients\n\n- Flour", $data['content_markdown'] );
+		$this->assertSame( 'Pancakes', $data['title'] );
+	}
+
+	public function test_builtin_post_filters_render_posts_and_pages() {
+		add_filter(
+			'the_content',
+			function ( $content ) {
+				return '<p>Rendered ' . $content . '</p>';
+			}
+		);
+
+		$post = $this->make_post(
+			array(
+				'ID'           => 12,
+				'post_type'    => 'page',
+				'post_content' => 'body',
+			)
+		);
+
+		$data = $this->generator->get_post_archive_data( $post );
+
+		$this->assertSame( '<p>Rendered body</p>', $data['content_html'] );
+		$this->assertSame( 'Rendered body', $data['content_markdown'] );
+	}
+
+	public function test_builtin_post_filters_provide_adjacent_posts_for_posts() {
+		$previous = $this->make_post(
+			array(
+				'ID'        => 11,
+				'post_title' => 'Previous',
+				'post_date'  => '2020-06-14 10:00:00',
+			)
+		);
+		$next     = $this->make_post(
+			array(
+				'ID'        => 13,
+				'post_title' => 'Next',
+				'post_date'  => '2020-06-16 10:00:00',
+			)
+		);
+		$post     = $this->make_post(
+			array(
+				'ID'        => 12,
+				'post_type' => 'post',
+				'post_date' => '2020-06-15 10:00:00',
+			)
+		);
+
+		$GLOBALS['_test_posts'][11] = $previous;
+		$GLOBALS['_test_posts'][12] = $post;
+		$GLOBALS['_test_posts'][13] = $next;
+
+		$this->assertSame( $previous, apply_filters( 'static_archive_post_previous_post', null, $post, $this->generator ) );
+		$this->assertSame( $next, apply_filters( 'static_archive_post_next_post', null, $post, $this->generator ) );
+	}
+
+	public function test_builtin_post_filters_skip_adjacent_posts_for_pages() {
+		$GLOBALS['_test_posts'][11] = $this->make_post(
+			array(
+				'ID'         => 11,
+				'post_title' => 'Previous',
+			)
+		);
+		$page                           = $this->make_post(
+			array(
+				'ID'        => 12,
+				'post_type' => 'page',
+			)
+		);
+
+		$this->assertNull( apply_filters( 'static_archive_post_previous_post', null, $page, $this->generator ) );
+		$this->assertNull( apply_filters( 'static_archive_post_next_post', null, $page, $this->generator ) );
 	}
 
 	// -------------------------------------------------------------------------
@@ -391,6 +555,22 @@ class GeneratorTest extends TestCase {
 		$mtime = strtotime( '2020-01-01 00:00:00' );
 		$this->generator->write_file( $file, 'hello', $mtime );
 		$this->assertSame( $mtime, filemtime( $file ) );
+	}
+
+	public function test_generate_all_noops_when_output_format_none() {
+		$GLOBALS['_test_options']['static_archive_output_format'] = 'none';
+		$gen = new Static_Archive_Generator();
+
+		$this->assertSame(
+			array(
+				'created'   => 0,
+				'updated'   => 0,
+				'unchanged' => 0,
+				'skipped'   => 0,
+				'total'     => 0,
+			),
+			$gen->generate_all()
+		);
 	}
 
 	public function test_write_file_updates_mtime_when_unchanged() {

@@ -13,6 +13,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/includes/class-generator.php';
+require_once __DIR__ . '/includes/class-posts-and-pages.php';
 require_once __DIR__ . '/includes/class-cli.php';
 
 class Static_Archive {
@@ -25,6 +26,7 @@ class Static_Archive {
 		add_action( 'wp_ajax_static_archive_verify', array( $this, 'ajax_verify' ) );
 		add_action( 'wp_ajax_static_archive_delete_all', array( $this, 'ajax_delete_all' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'add_plugin_action_links' ) );
+		Static_Archive_Posts_And_Pages::register();
 	}
 
 	/**
@@ -121,7 +123,7 @@ class Static_Archive {
 		// Post types.
 		// phpcs:ignore WordPress.Security.ValidatedSanitizedInput -- Each element is sanitized via sanitize_key() below.
 		$raw_types      = isset( $_POST['static_archive_post_types'] ) ? wp_unslash( $_POST['static_archive_post_types'] ) : array();
-		$all_post_types = get_post_types( array( 'public' => true ), 'names' );
+		$all_post_types = get_post_types( array(), 'names' );
 		$selected_types = array();
 		if ( is_array( $raw_types ) ) {
 			foreach ( $raw_types as $type ) {
@@ -130,9 +132,6 @@ class Static_Archive {
 					$selected_types[] = $type;
 				}
 			}
-		}
-		if ( empty( $selected_types ) ) {
-			$selected_types = array( 'post', 'page' );
 		}
 		update_option( 'static_archive_post_types', $selected_types );
 
@@ -143,8 +142,10 @@ class Static_Archive {
 			$format = 'both';
 		} elseif ( $md_on ) {
 			$format = 'markdown';
-		} else {
+		} elseif ( $html_on ) {
 			$format = 'html';
+		} else {
+			$format = 'none';
 		}
 		update_option( 'static_archive_output_format', $format );
 	}
@@ -337,8 +338,11 @@ class Static_Archive {
 					<p><strong>Post types</strong></p>
 					<div class="sa-checkbox-list">
 						<?php
-						$all_types = get_post_types( array( 'public' => true ), 'objects' );
-						foreach ( $all_types as $type_obj ) :
+						foreach ( Static_Archive_Generator::get_available_post_types() as $type_name ) :
+							$type_obj = get_post_type_object( $type_name );
+							if ( ! $type_obj ) {
+								continue;
+							}
 							if ( 'attachment' === $type_obj->name ) {
 								continue;
 							}
@@ -448,6 +452,15 @@ class Static_Archive {
 							return;
 						}
 						var r = data.data;
+						if (!r.total) {
+							barEl.style.width = '100%';
+							barEl.textContent = '0 / 0';
+							log(i18n.done);
+							running = false;
+							generateBtn.disabled = false;
+							verify();
+							return;
+						}
 						var pct = Math.round(r.processed / r.total * 100);
 						barEl.style.width = pct + '%';
 						barEl.textContent = r.processed + ' / ' + r.total;
