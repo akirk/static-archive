@@ -1,13 +1,13 @@
 # Static Archive
 
-Contributors: akirk  
-Tags: archive, backup, static, html, markdown  
-Requires at least: 5.0  
-Tested up to: 6.8  
-Stable tag: 1.0.0  
-Requires PHP: 7.0  
-License: GPL-2.0-or-later  
-License URI: https://www.gnu.org/licenses/gpl-2.0.html  
+Contributors: akirk
+Tags: archive, backup, static, html, markdown
+Requires at least: 5.0
+Tested up to: 6.8
+Stable tag: 1.0.0
+Requires PHP: 7.0
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
 Generate a self-contained static HTML archive of your posts in the uploads directory.
 

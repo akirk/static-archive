@@ -393,7 +393,7 @@ class Static_Archive {
 
 		<script>
 		(function() {
-			var i18n = 
+			var i18n =
 			<?php
 			echo wp_json_encode(
 				array(
