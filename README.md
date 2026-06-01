@@ -1,14 +1,27 @@
 # Static Archive
 
+Contributors: akirk
+Tags: archive, backup, static, html, markdown
+Requires at least: 5.0
+Tested up to: 6.8
+Stable tag: 1.0.0
+Requires PHP: 7.0
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+
+Generate a self-contained static HTML archive of your posts in the uploads directory.
+
+## Description
+
 A WordPress plugin that generates a static HTML archive of your posts and pages, stored directly in the uploads directory alongside your images. If you ever lose access to WordPress — or simply don't want to maintain a PHP and MySQL stack to read your old content — the archive is right there: plain HTML files you can open in any browser.
 
-## Why
+### Why
 
 WordPress backups typically require restoring a database and running PHP to see your content again. That's fine today, but years from now you might not have a WordPress environment handy. By generating HTML files into the same directory where your images already live, this plugin turns your uploads folder into a self-contained archive. Copy it to a USB drive, a NAS, or cloud storage, and your content remains readable without any software beyond a web browser.
 
 You can also generate Markdown files alongside (or instead of) HTML — useful for feeding content into LLMs, migrating to other platforms, or simply having a future-proof plain-text copy of everything you've written.
 
-## How it works
+### How it works
 
 Each published post or page gets its own file placed in the uploads directory. Posts go into year folders, pages into a `pages/` folder. Image URLs are rewritten to relative paths, so the entire uploads directory is self-contained — just copy it and everything works.
 
@@ -45,7 +58,7 @@ When you publish, update, or delete a post or page, the plugin automatically reg
 
 All generated filenames include a configurable random suffix (e.g. `-keT1KxmG`) to prevent the archive from being discoverable via URL guessing. This can be changed or cleared in the settings.
 
-## Admin UI
+### Admin UI
 
 <img width="1640" height="1732" alt="Screenshot 2026-03-10 at 15 04 52" src="https://github.com/user-attachments/assets/b21b79f6-e39b-4b5a-81ca-b0912c682e7a" />
 
@@ -60,6 +73,71 @@ Go to **Tools → Static Archive** to:
 - Configure the filename suffix
 
 A link to the admin page is also available on the Plugins list page.
+
+### Features
+
+- Archive posts, pages, and custom post types
+- Output as HTML, Markdown, or both
+- Works on single-site and multisite WordPress installations
+- Posts without titles fall back to excerpt or content snippet in listings
+- Author displayed on each post and in the index
+- Previous/next navigation between posts
+- Year archives available in both chronological and reverse order
+- Year navigation at the top of the main index
+- Pages listed in a separate section of the index
+- Markdown files include YAML frontmatter (title, date, author)
+- Clean, responsive HTML design with system fonts
+- No external dependencies — just plain HTML and CSS
+
+### How is this different from other static site plugins?
+
+Most WordPress static site plugins are designed to replace WordPress with a static frontend, or to create a full themed mirror of your site. Static Archive solves a different problem: making your content survive independently of WordPress.
+
+| Plugin | What it does | How Static Archive differs |
+|--------|-------------|--------------------------|
+| [Simply Static](https://wordpress.org/plugins/simply-static/) | Crawls the live site and exports a full themed mirror with all CSS/JS | Exports to a separate location or ZIP. Much heavier output, not designed for portable backups within the uploads directory. |
+| [Export WP Pages to Static HTML](https://wordpress.org/plugins/export-wp-page-to-static-html/) | Manual page-by-page export with bundled assets | Not designed for ongoing automatic archiving of all posts. |
+| [WP2Static](https://github.com/leonstafford/wp2static) | Crawls site and deploys to S3, GitHub Pages, etc. | Focused on replacing WordPress with a static site, not creating a portable backup alongside it. |
+| [Serve Static](https://wordpress.org/plugins/serve_static/) | Generates cached static copies for performance | A performance cache, not an archiving tool. |
+
+The key difference is where and why the files are generated. Static Archive places minimal, clean HTML (and optionally Markdown) directly into the uploads directory — the same place your images already live. The result is that a backup of your uploads folder (or even just your `wp-content` directory) gives you browsable content with no database, no PHP, and no WordPress required.
+
+## Installation
+
+1. Upload the `static-archive` directory to `wp-content/plugins/`
+2. Activate the plugin
+3. Go to **Tools → Static Archive** and click **Generate All**
+
+## Frequently Asked Questions
+
+### Where are the generated files stored?
+
+In your WordPress uploads directory (usually `wp-content/uploads/`). Posts are organized in year folders, pages in a `pages/` folder.
+
+### Will this slow down my site?
+
+No. The plugin only runs when you publish, update, or delete a post. It generates static files in the background — your visitors never see any difference.
+
+### Can I use this on multisite?
+
+Yes. Each site gets its own archive in its own uploads directory (`wp-content/uploads/sites/{id}/`).
+
+### What happens if I deactivate the plugin?
+
+The generated files remain in place. They're just HTML files in your uploads directory — they don't depend on the plugin to be readable.
+
+### Can I choose which post types to archive?
+
+Yes. Go to **Tools → Static Archive** and select which post types to include. Posts and pages are enabled by default.
+
+## Screenshots
+
+1. The admin page showing archive status, generation controls, and settings.
+
+## Changelog
+
+### 1.0.0
+- Initial release.
 
 ## WP-CLI
 
@@ -182,40 +260,6 @@ add_filter(
 ```
 
 Return `null` when no adjacent post should be linked.
-
-## Features
-
-- Archive posts, pages, and custom post types
-- Output as HTML, Markdown, or both
-- Works on single-site and multisite WordPress installations
-- Posts without titles fall back to excerpt or content snippet in listings
-- Author displayed on each post and in the index
-- Previous/next navigation between posts
-- Year archives available in both chronological and reverse order
-- Year navigation at the top of the main index
-- Pages listed in a separate section of the index
-- Markdown files include YAML frontmatter (title, date, author)
-- Clean, responsive HTML design with system fonts
-- No external dependencies — just plain HTML and CSS
-
-## Installation
-
-1. Copy the `static-archive` directory to `wp-content/plugins/`
-2. Activate the plugin on the site(s) you want to archive
-3. Go to **Tools → Static Archive** and click **Generate All**
-
-## How is this different from other static site plugins?
-
-Most WordPress static site plugins are designed to replace WordPress with a static frontend, or to create a full themed mirror of your site. Static Archive solves a different problem: making your content survive independently of WordPress.
-
-| Plugin | What it does | How Static Archive differs |
-|--------|-------------|--------------------------|
-| [Simply Static](https://wordpress.org/plugins/simply-static/) | Crawls the live site and exports a full themed mirror with all CSS/JS | Exports to a separate location or ZIP. Much heavier output, not designed for portable backups within the uploads directory. |
-| [Export WP Pages to Static HTML](https://wordpress.org/plugins/export-wp-page-to-static-html/) | Manual page-by-page export with bundled assets | Not designed for ongoing automatic archiving of all posts. |
-| [WP2Static](https://github.com/leonstafford/wp2static) | Crawls site and deploys to S3, GitHub Pages, etc. | Focused on replacing WordPress with a static site, not creating a portable backup alongside it. |
-| [Serve Static](https://wordpress.org/plugins/serve_static/) | Generates cached static copies for performance | A performance cache, not an archiving tool. |
-
-The key difference is where and why the files are generated. Static Archive places minimal, clean HTML (and optionally Markdown) directly into the uploads directory — the same place your images already live. The result is that a backup of your uploads folder (or even just your `wp-content` directory) gives you browsable content with no database, no PHP, and no WordPress required.
 
 ## Requirements
 
