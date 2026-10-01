@@ -1,6 +1,13 @@
 <?php
 
-class Static_Archive_Generator {
+namespace StaticArchive;
+
+use WP_Query;
+use WP_Post;
+use RecursiveIteratorIterator;
+use RecursiveDirectoryIterator;
+
+class Generator {
 
 	private $output_dir;
 	private $upload_baseurl;
@@ -233,7 +240,7 @@ class Static_Archive_Generator {
 		 *
 		 * @param string                   $html      HTML body.
 		 * @param WP_Post                  $wp_post   Post object.
-		 * @param Static_Archive_Generator $generator Generator instance.
+		 * @param Generator $generator Generator instance.
 		 */
 		$content_html = apply_filters( 'static_archive_post_html', $content, $wp_post, $this );
 
@@ -242,7 +249,7 @@ class Static_Archive_Generator {
 		 *
 		 * @param string|null              $markdown  Markdown body, or null to derive from HTML.
 		 * @param WP_Post                  $wp_post   Post object.
-		 * @param Static_Archive_Generator $generator Generator instance.
+		 * @param Generator $generator Generator instance.
 		 * @param string                   $html      Filtered HTML body.
 		 */
 		$content_markdown = apply_filters( 'static_archive_post_markdown', null, $wp_post, $this, $content_html );
@@ -332,7 +339,7 @@ class Static_Archive_Generator {
 		 *
 		 * @param WP_Post|null             $previous  Previous post object, or null.
 		 * @param WP_Post                  $wp_post   Current post object.
-		 * @param Static_Archive_Generator $generator Generator instance.
+		 * @param Generator $generator Generator instance.
 		 */
 		$prev = apply_filters( 'static_archive_post_previous_post', null, $wp_post, $this );
 
@@ -341,7 +348,7 @@ class Static_Archive_Generator {
 		 *
 		 * @param WP_Post|null             $next      Next post object, or null.
 		 * @param WP_Post                  $wp_post   Current post object.
-		 * @param Static_Archive_Generator $generator Generator instance.
+		 * @param Generator $generator Generator instance.
 		 */
 		$next = apply_filters( 'static_archive_post_next_post', null, $wp_post, $this );
 
@@ -1203,3 +1210,6 @@ class Static_Archive_Generator {
 		return $this->output_dir;
 	}
 }
+
+// Preserve public class names used by existing integrations.
+class_alias( Generator::class, 'Static_Archive_Generator' );

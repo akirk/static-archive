@@ -1,11 +1,18 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use StaticArchive\PostsAndPages;
+use StaticArchive\Generator;
 
 class GeneratorTest extends TestCase {
 
-	private Static_Archive_Generator $generator;
+	private Generator $generator;
 	private string $tmpDir;
+
+	public function testLegacyClassNamesRemainCompatible(): void {
+		$this->assertInstanceOf( Generator::class, new \Static_Archive_Generator() );
+		$this->assertSame( PostsAndPages::class, ( new ReflectionClass( 'Static_Archive_Posts_And_Pages' ) )->getName() );
+	}
 
 	protected function setUp(): void {
 		$GLOBALS['_test_options']      = array( 'date_format' => 'Y-m-d' );
@@ -19,7 +26,7 @@ class GeneratorTest extends TestCase {
 			$this->removeDir( $this->tmpDir );
 		}
 		mkdir( $this->tmpDir, 0777, true );
-		$this->generator = new Static_Archive_Generator();
+		$this->generator = new Generator();
 	}
 
 	protected function tearDown(): void {
@@ -36,7 +43,7 @@ class GeneratorTest extends TestCase {
 	}
 
 	private function register_builtin_static_archive_filters(): void {
-		Static_Archive_Posts_And_Pages::register();
+		PostsAndPages::register();
 	}
 
 	private function make_post( array $props ): stdClass {
@@ -262,7 +269,7 @@ class GeneratorTest extends TestCase {
 	public function test_post_relative_path_for_front_page() {
 		$GLOBALS['_test_options']['show_on_front']  = 'page';
 		$GLOBALS['_test_options']['page_on_front']  = 5;
-		$gen  = new Static_Archive_Generator();
+		$gen  = new Generator();
 		$post = $this->make_post(
 			array(
 				'ID'        => 5,
@@ -276,7 +283,7 @@ class GeneratorTest extends TestCase {
 	public function test_post_relative_path_for_page_not_front_page() {
 		$GLOBALS['_test_options']['show_on_front'] = 'page';
 		$GLOBALS['_test_options']['page_on_front'] = 5;
-		$gen  = new Static_Archive_Generator();
+		$gen  = new Generator();
 		$post = $this->make_post(
 			array(
 				'ID'        => 10,
@@ -328,21 +335,21 @@ class GeneratorTest extends TestCase {
 
 	public function test_should_output_markdown_when_markdown_format() {
 		$GLOBALS['_test_options']['static_archive_output_format'] = 'markdown';
-		$gen = new Static_Archive_Generator();
+		$gen = new Generator();
 		$this->assertFalse( $gen->should_output_html() );
 		$this->assertTrue( $gen->should_output_markdown() );
 	}
 
 	public function test_should_output_both_when_both_format() {
 		$GLOBALS['_test_options']['static_archive_output_format'] = 'both';
-		$gen = new Static_Archive_Generator();
+		$gen = new Generator();
 		$this->assertTrue( $gen->should_output_html() );
 		$this->assertTrue( $gen->should_output_markdown() );
 	}
 
 	public function test_should_output_neither_when_none_format() {
 		$GLOBALS['_test_options']['static_archive_output_format'] = 'none';
-		$gen = new Static_Archive_Generator();
+		$gen = new Generator();
 		$this->assertFalse( $gen->should_output_html() );
 		$this->assertFalse( $gen->should_output_markdown() );
 	}
@@ -352,12 +359,12 @@ class GeneratorTest extends TestCase {
 	// -------------------------------------------------------------------------
 
 	public function test_get_post_types_default() {
-		$this->assertSame( array( 'post', 'page' ), Static_Archive_Generator::get_post_types() );
+		$this->assertSame( array( 'post', 'page' ), Generator::get_post_types() );
 	}
 
 	public function test_get_post_types_custom() {
 		$GLOBALS['_test_options']['static_archive_post_types'] = array( 'post', 'page', 'product' );
-		$this->assertSame( array( 'post', 'page', 'product' ), Static_Archive_Generator::get_post_types() );
+		$this->assertSame( array( 'post', 'page', 'product' ), Generator::get_post_types() );
 	}
 
 	public function test_get_post_types_filter_can_add_hidden_post_type() {
@@ -369,7 +376,7 @@ class GeneratorTest extends TestCase {
 			}
 		);
 
-		$this->assertSame( array( 'post', 'page', 'cb-recipes' ), Static_Archive_Generator::get_post_types() );
+		$this->assertSame( array( 'post', 'page', 'cb-recipes' ), Generator::get_post_types() );
 	}
 
 	public function test_get_post_types_allows_empty_saved_selection() {
@@ -383,7 +390,7 @@ class GeneratorTest extends TestCase {
 			}
 		);
 
-		$this->assertSame( array(), Static_Archive_Generator::get_post_types() );
+		$this->assertSame( array(), Generator::get_post_types() );
 	}
 
 	public function test_get_available_post_types_includes_filter_added_type() {
@@ -397,7 +404,7 @@ class GeneratorTest extends TestCase {
 			}
 		);
 
-		$this->assertSame( array( 'post', 'page', 'cb-recipes' ), Static_Archive_Generator::get_available_post_types() );
+		$this->assertSame( array( 'post', 'page', 'cb-recipes' ), Generator::get_available_post_types() );
 	}
 
 	public function test_get_dated_post_types_excludes_page() {
@@ -406,7 +413,7 @@ class GeneratorTest extends TestCase {
 
 	public function test_get_dated_post_types_with_custom_types() {
 		$GLOBALS['_test_options']['static_archive_post_types'] = array( 'post', 'page', 'product' );
-		$gen = new Static_Archive_Generator();
+		$gen = new Generator();
 		$this->assertSame( array( 'post', 'product' ), $gen->get_dated_post_types() );
 	}
 
@@ -559,7 +566,7 @@ class GeneratorTest extends TestCase {
 
 	public function test_generate_all_noops_when_output_format_none() {
 		$GLOBALS['_test_options']['static_archive_output_format'] = 'none';
-		$gen = new Static_Archive_Generator();
+		$gen = new Generator();
 
 		$this->assertSame(
 			array(
@@ -706,7 +713,7 @@ class GeneratorTest extends TestCase {
 		);
 		$GLOBALS['_test_posts'][7]     = $front;
 		$GLOBALS['_test_page_uri'][7]  = 'home';
-		$gen                           = new Static_Archive_Generator();
+		$gen                           = new Generator();
 		$result                        = $gen->rewrite_urls(
 			'<a href="/">link</a>',
 			'/tmp/wp-uploads'

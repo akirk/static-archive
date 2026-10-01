@@ -13,6 +13,8 @@
  * Text Domain: static-archive
  */
 
+namespace StaticArchive;
+
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
@@ -22,10 +24,10 @@ require_once __DIR__ . '/includes/class-automatic-updates.php';
 require_once __DIR__ . '/includes/class-posts-and-pages.php';
 require_once __DIR__ . '/includes/class-cli.php';
 
-class Static_Archive {
+class Plugin {
 
 	public function __construct() {
-		add_action( 'static_archive_pending_updates', array( 'Static_Archive_Automatic_Updates', 'run_pending' ) );
+		add_action( 'static_archive_pending_updates', array( AutomaticUpdates::class, 'run_pending' ) );
 		add_action( 'transition_post_status', array( $this, 'on_post_status_change' ), 10, 3 );
 		add_action( 'before_delete_post', array( $this, 'on_post_delete' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_page' ) );
@@ -33,7 +35,7 @@ class Static_Archive {
 		add_action( 'wp_ajax_static_archive_verify', array( $this, 'ajax_verify' ) );
 		add_action( 'wp_ajax_static_archive_delete_all', array( $this, 'ajax_delete_all' ) );
 		add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), array( $this, 'add_plugin_action_links' ) );
-		Static_Archive_Posts_And_Pages::register();
+		PostsAndPages::register();
 	}
 
 	/**
@@ -49,13 +51,13 @@ class Static_Archive {
 	 * When a post is published or updated, regenerate its files.
 	 */
 	public function on_post_status_change( $new_status, $old_status, $wp_post ) {
-		$post_types = Static_Archive_Generator::get_post_types();
+		$post_types = Generator::get_post_types();
 		if ( ! in_array( $wp_post->post_type, $post_types, true ) ) {
 			return;
 		}
 
 		if ( 'publish' === $new_status || 'publish' === $old_status ) {
-			Static_Archive_Automatic_Updates::update( $wp_post, 'publish' !== $new_status );
+			AutomaticUpdates::update( $wp_post, 'publish' !== $new_status );
 		}
 	}
 
@@ -64,12 +66,12 @@ class Static_Archive {
 	 */
 	public function on_post_delete( $post_id ) {
 		$wp_post    = get_post( $post_id );
-		$post_types = Static_Archive_Generator::get_post_types();
+		$post_types = Generator::get_post_types();
 		if ( ! $wp_post || ! in_array( $wp_post->post_type, $post_types, true ) ) {
 			return;
 		}
 
-		Static_Archive_Automatic_Updates::update( $wp_post, true );
+		AutomaticUpdates::update( $wp_post, true );
 	}
 
 	/**
@@ -94,7 +96,7 @@ class Static_Archive {
 		}
 		check_admin_referer( 'static_archive_settings' );
 
-		$old_suffix = Static_Archive_Generator::get_filename_suffix();
+		$old_suffix = Generator::get_filename_suffix();
 		$new_suffix = isset( $_POST['static_archive_filename_suffix'] )
 			? sanitize_text_field( wp_unslash( $_POST['static_archive_filename_suffix'] ) )
 			: '';
@@ -102,7 +104,7 @@ class Static_Archive {
 			$new_suffix = '-' . $new_suffix;
 		}
 		if ( $new_suffix !== $old_suffix && ! empty( $_POST['static_archive_delete_old_suffix'] ) ) {
-			( new Static_Archive_Generator() )->delete_all();
+			( new Generator() )->delete_all();
 		}
 		update_option( 'static_archive_filename_suffix', $new_suffix );
 
@@ -139,14 +141,14 @@ class Static_Archive {
 	public function render_admin_page() {
 		$this->maybe_save_settings();
 
-		$generator           = new Static_Archive_Generator();
+		$generator           = new Generator();
 		$output_dir          = $generator->get_output_dir();
-		$suffix              = Static_Archive_Generator::get_filename_suffix();
+		$suffix              = Generator::get_filename_suffix();
 		$upload_dir          = wp_get_upload_dir();
 		$index_url           = $upload_dir['baseurl'] . '/' . $generator->get_index_filename();
 		$front_page_filename = $generator->get_front_page_filename();
 		$front_page_url      = $front_page_filename ? $upload_dir['baseurl'] . '/' . $front_page_filename : null;
-		$post_types          = Static_Archive_Generator::get_post_types();
+		$post_types          = Generator::get_post_types();
 
 		$total_posts = 0;
 		foreach ( $post_types as $type ) {
@@ -324,7 +326,7 @@ class Static_Archive {
 					<p><strong><?php esc_html_e( 'Post types', 'static-archive' ); ?></strong></p>
 					<div class="sa-checkbox-list">
 						<?php
-						foreach ( Static_Archive_Generator::get_available_post_types() as $type_name ) :
+						foreach ( Generator::get_available_post_types() as $type_name ) :
 							$type_obj = get_post_type_object( $type_name );
 							if ( ! $type_obj ) {
 								continue;
@@ -574,7 +576,7 @@ class Static_Archive {
 		}
 
 		$offset    = isset( $_GET['offset'] ) ? absint( $_GET['offset'] ) : 0;
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$result    = $generator->generate_batch( $offset );
 
 		wp_send_json_success( $result );
@@ -590,7 +592,7 @@ class Static_Archive {
 			wp_send_json_error( __( 'Permission denied.', 'static-archive' ) );
 		}
 
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$report    = $generator->verify();
 
 		wp_send_json_success( $report );
@@ -606,11 +608,14 @@ class Static_Archive {
 			wp_send_json_error( __( 'Permission denied.', 'static-archive' ) );
 		}
 
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$deleted   = $generator->delete_all();
 
 		wp_send_json_success( array( 'deleted' => $deleted ) );
 	}
 }
 
-new Static_Archive();
+// Preserve public class names used by existing integrations.
+class_alias( Plugin::class, 'Static_Archive' );
+
+new Plugin();

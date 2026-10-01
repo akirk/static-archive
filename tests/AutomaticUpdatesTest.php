@@ -1,6 +1,7 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use StaticArchive\AutomaticUpdates;
 
 require_once dirname( __DIR__ ) . '/includes/class-automatic-updates.php';
 
@@ -23,15 +24,15 @@ class AutomaticUpdatesTest extends TestCase {
 	}
 
 	public function testMissingNestedDestinationUsesExistingAncestor(): void {
-		$this->assertTrue( Static_Archive_Automatic_Updates::writable( sys_get_temp_dir() . '/static-archive-missing/subdir/post.html' ) );
+		$this->assertTrue( AutomaticUpdates::writable( sys_get_temp_dir() . '/static-archive-missing/subdir/post.html' ) );
 	}
 
 	public function testDeletionRequiresWritableDirectoryRatherThanFile(): void {
 		$file = tempnam( sys_get_temp_dir(), 'sa-' );
 		try {
 			chmod( $file, 0444 );
-			$this->assertFalse( Static_Archive_Automatic_Updates::writable( $file ) );
-			$this->assertTrue( Static_Archive_Automatic_Updates::writable( $file, true ) );
+			$this->assertFalse( AutomaticUpdates::writable( $file ) );
+			$this->assertTrue( AutomaticUpdates::writable( $file, true ) );
 		} finally {
 			unlink( $file );
 		}
@@ -39,13 +40,13 @@ class AutomaticUpdatesTest extends TestCase {
 
 	public function testPendingUpdatesAreDeduplicatedAndDeletionPathsSurvive(): void {
 		$post = (object) array( 'ID' => 42, 'post_type' => 'post', 'post_date' => '2026-10-01' );
-		$job = Static_Archive_Automatic_Updates::make_job( $post, false );
-		$GLOBALS['_test_options'][ Static_Archive_Automatic_Updates::OPTION ] = array( 42 => array( $job ) );
-		Static_Archive_Automatic_Updates::update( $post );
-		Static_Archive_Automatic_Updates::update( $post );
-		$this->assertCount( 1, get_option( Static_Archive_Automatic_Updates::OPTION )[42] );
-		Static_Archive_Automatic_Updates::update( $post, true );
-		$pending = get_option( Static_Archive_Automatic_Updates::OPTION );
+		$job = AutomaticUpdates::make_job( $post, false );
+		$GLOBALS['_test_options'][ AutomaticUpdates::OPTION ] = array( 42 => array( $job ) );
+		AutomaticUpdates::update( $post );
+		AutomaticUpdates::update( $post );
+		$this->assertCount( 1, get_option( AutomaticUpdates::OPTION )[42] );
+		AutomaticUpdates::update( $post, true );
+		$pending = get_option( AutomaticUpdates::OPTION );
 		$this->assertCount( 2, $pending[42] );
 		$this->assertSame( $job['paths'], $pending[42][1]['paths'] );
 		$this->assertTrue( $pending[42][1]['delete'] );
@@ -61,11 +62,11 @@ class AutomaticUpdatesTest extends TestCase {
 		chmod( $file, 0444 );
 		$post = (object) array( 'ID' => 424242, 'post_type' => 'post', 'post_date' => '2099-10-01' );
 		try {
-			Static_Archive_Automatic_Updates::update( $post );
-			$this->assertArrayHasKey( 424242, get_option( Static_Archive_Automatic_Updates::OPTION ) );
+			AutomaticUpdates::update( $post );
+			$this->assertArrayHasKey( 424242, get_option( AutomaticUpdates::OPTION ) );
 			$this->assertFileDoesNotExist( $dir . '/post-424242-permission-test.html' );
 			$this->assertSame( 'original archive', file_get_contents( $file ) );
-			$this->assertNotFalse( wp_next_scheduled( Static_Archive_Automatic_Updates::HOOK ) );
+			$this->assertNotFalse( wp_next_scheduled( AutomaticUpdates::HOOK ) );
 		} finally {
 			unlink( $file );
 		}
@@ -74,9 +75,9 @@ class AutomaticUpdatesTest extends TestCase {
 	public function testBlockedCronRetainsPendingDeletion(): void {
 		$job = array( 'id' => 42, 'delete' => true, 'paths' => array( '/proc/version' ), 'year' => '2026' );
 		$pending = array( 42 => array( $job ) );
-		$GLOBALS['_test_options'][ Static_Archive_Automatic_Updates::OPTION ] = $pending;
-		Static_Archive_Automatic_Updates::run_pending();
-		$this->assertSame( $pending, get_option( Static_Archive_Automatic_Updates::OPTION ) );
-		$this->assertNotFalse( wp_next_scheduled( Static_Archive_Automatic_Updates::HOOK ) );
+		$GLOBALS['_test_options'][ AutomaticUpdates::OPTION ] = $pending;
+		AutomaticUpdates::run_pending();
+		$this->assertSame( $pending, get_option( AutomaticUpdates::OPTION ) );
+		$this->assertNotFalse( wp_next_scheduled( AutomaticUpdates::HOOK ) );
 	}
 }

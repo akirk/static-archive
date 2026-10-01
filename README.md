@@ -47,6 +47,8 @@ uploads/                          (or uploads/sites/{id}/ on multisite)
 │   └── ...
 ```
 
+Plugin classes use the `StaticArchive` namespace (for example, `StaticArchive\Generator`). Legacy `Static_Archive_*` class names remain available as compatibility aliases for existing integrations.
+
 ### Automatic updates
 
 When you publish, update, or delete a post or page, the plugin automatically regenerates:
@@ -198,7 +200,7 @@ year archive updates are still handled by Static Archive.
 ```php
 add_filter(
     'static_archive_post_html',
-    function( string $html, WP_Post $post, Static_Archive_Generator $generator ): string {
+    function( string $html, WP_Post $post, \StaticArchive\Generator $generator ): string {
         if ( 'my_private_post_type' !== $post->post_type ) {
             return $html;
         }
@@ -225,7 +227,7 @@ add_filter(
     function(
         ?string $markdown,
         WP_Post $post,
-        Static_Archive_Generator $generator,
+        \StaticArchive\Generator $generator,
         string $html
     ): ?string {
         if ( 'my_private_post_type' !== $post->post_type ) {
@@ -251,7 +253,7 @@ post/page integration provides these only for the `post` post type.
 ```php
 add_filter(
     'static_archive_post_previous_post',
-    function( ?WP_Post $previous, WP_Post $post, Static_Archive_Generator $generator ): ?WP_Post {
+    function( ?WP_Post $previous, WP_Post $post, \StaticArchive\Generator $generator ): ?WP_Post {
         if ( 'my_private_post_type' !== $post->post_type ) {
             return $previous;
         }

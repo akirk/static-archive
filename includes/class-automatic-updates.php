@@ -1,9 +1,11 @@
 <?php
 
+namespace StaticArchive;
+
 /**
  * Keep automatic updates synchronous unless their destinations are unwritable.
  */
-class Static_Archive_Automatic_Updates {
+class AutomaticUpdates {
 
 	const OPTION = 'static_archive_pending_updates';
 	const HOOK   = 'static_archive_pending_updates';
@@ -28,7 +30,7 @@ class Static_Archive_Automatic_Updates {
 	}
 
 	public static function make_job( $post, $delete ) {
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$paths     = array();
 		foreach ( array( 'html', 'md' ) as $ext ) {
 			$paths[] = $generator->get_output_dir() . '/' . $generator->get_post_relative_path( $post, $ext );
@@ -69,7 +71,7 @@ class Static_Archive_Automatic_Updates {
 	}
 
 	public static function can_run( $jobs ) {
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$base      = $generator->get_output_dir() . '/';
 		$files     = array( $base . $generator->get_style_filename() );
 		foreach ( $jobs as $job ) {
@@ -116,7 +118,7 @@ class Static_Archive_Automatic_Updates {
 		// Resolve current state, including posts deleted since the job was queued.
 		foreach ( $jobs as &$job ) {
 			$post          = get_post( $job['id'] );
-			$job['delete'] = ! $post || 'publish' !== $post->post_status || ! in_array( $post->post_type, Static_Archive_Generator::get_post_types(), true );
+			$job['delete'] = ! $post || 'publish' !== $post->post_status || ! in_array( $post->post_type, Generator::get_post_types(), true );
 			if ( ! $job['delete'] ) {
 				$jobs_current[] = self::make_job( $post, false );
 			}
@@ -147,7 +149,7 @@ class Static_Archive_Automatic_Updates {
 	}
 
 	private static function run( $jobs ) {
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$years     = array();
 		$posts     = array();
 		$failed    = false;
@@ -189,3 +191,6 @@ class Static_Archive_Automatic_Updates {
 		return ! $failed;
 	}
 }
+
+// Preserve public class names used by existing integrations.
+class_alias( AutomaticUpdates::class, 'Static_Archive_Automatic_Updates' );

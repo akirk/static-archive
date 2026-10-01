@@ -1,10 +1,14 @@
 <?php
 
+namespace StaticArchive;
+
+use WP_CLI;
+
 if ( ! defined( 'WP_CLI' ) || ! WP_CLI ) {
 	return;
 }
 
-class Static_Archive_CLI {
+class CLI {
 
 	/**
 	 * Generate static archive files.
@@ -26,7 +30,7 @@ class Static_Archive_CLI {
 	 * @subcommand generate
 	 */
 	public function generate( $args, $assoc_args ) {
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 
 		if ( ! empty( $assoc_args['post_id'] ) ) {
 			$generator->copy_stylesheet();
@@ -73,7 +77,7 @@ class Static_Archive_CLI {
 	 */
 	// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WP-CLI signature.
 	public function verify( $args, $assoc_args ) {
-		$generator = new Static_Archive_Generator();
+		$generator = new Generator();
 		$report    = $generator->verify();
 
 		WP_CLI::log(
@@ -111,4 +115,7 @@ class Static_Archive_CLI {
 	}
 }
 
-WP_CLI::add_command( 'static-archive', 'Static_Archive_CLI' );
+// Preserve public class names used by existing integrations.
+class_alias( CLI::class, 'Static_Archive_CLI' );
+
+WP_CLI::add_command( 'static-archive', CLI::class );
