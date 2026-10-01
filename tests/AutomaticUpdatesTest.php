@@ -6,13 +6,27 @@ use StaticArchive\AutomaticUpdates;
 require_once dirname( __DIR__ ) . '/includes/class-automatic-updates.php';
 
 if ( ! function_exists( 'wp_next_scheduled' ) ) {
-	function wp_next_scheduled( $hook ) {
-		return $GLOBALS['_test_scheduled'][ $hook ] ?? false;
+	function wp_next_scheduled( $hook, $args = array() ) {
+		return $GLOBALS['_test_scheduled'][ $hook ][ serialize( $args ) ]['timestamp'] ?? false;
 	}
-	function wp_schedule_single_event( $timestamp, $hook ) {
-		$GLOBALS['_test_scheduled'][ $hook ] = $timestamp;
+	function wp_schedule_single_event( $timestamp, $hook, $args = array() ) {
+		$GLOBALS['_test_scheduled'][ $hook ][ serialize( $args ) ] = array( 'timestamp' => $timestamp, 'args' => $args );
 		return true;
 	}
+	function _get_cron_array() {
+		$cron = array();
+		foreach ( $GLOBALS['_test_scheduled'] as $hook => $events ) {
+			foreach ( $events as $key => $event ) {
+				$cron[ $event['timestamp'] ][ $hook ][ $key ] = $event;
+			}
+		}
+		return $cron;
+	}
+	function wp_unschedule_event( $timestamp, $hook, $args ) {
+		unset( $GLOBALS['_test_scheduled'][ $hook ][ serialize( $args ) ] );
+		return true;
+	}
+
 }
 
 class AutomaticUpdatesTest extends TestCase {
@@ -38,21 +52,6 @@ class AutomaticUpdatesTest extends TestCase {
 		}
 	}
 
-	public function testPendingUpdatesAreDeduplicatedAndDeletionPathsSurvive(): void {
-		$post = (object) array( 'ID' => 42, 'post_type' => 'post', 'post_date' => '2026-10-01' );
-		$job = AutomaticUpdates::make_job( $post, false );
-		$GLOBALS['_test_options'][ AutomaticUpdates::OPTION ] = array( 42 => array( $job ) );
-		AutomaticUpdates::update( $post );
-		AutomaticUpdates::update( $post );
-		$this->assertCount( 1, get_option( AutomaticUpdates::OPTION )[42] );
-		AutomaticUpdates::update( $post, true );
-		$pending = get_option( AutomaticUpdates::OPTION );
-		$this->assertCount( 2, $pending[42] );
-		$this->assertSame( $job['paths'], $pending[42][1]['paths'] );
-		$this->assertTrue( $pending[42][1]['delete'] );
-		$this->assertCount( 1, $GLOBALS['_test_scheduled'] );
-	}
-
 	public function testUnwritableYearArchiveDefersBeforeCreatingPostFile(): void {
 		$GLOBALS['_test_options']['static_archive_filename_suffix'] = '-permission-test';
 		$dir = '/tmp/wp-uploads/2099';
@@ -63,21 +62,40 @@ class AutomaticUpdatesTest extends TestCase {
 		$post = (object) array( 'ID' => 424242, 'post_type' => 'post', 'post_date' => '2099-10-01' );
 		try {
 			AutomaticUpdates::update( $post );
-			$this->assertArrayHasKey( 424242, get_option( AutomaticUpdates::OPTION ) );
+			AutomaticUpdates::update( $post );
+			$job = AutomaticUpdates::make_job( $post, false );
+			$this->assertCount( 1, $GLOBALS['_test_scheduled'][ AutomaticUpdates::HOOK ] );
+			$this->assertFalse( get_option( 'static_archive_pending_updates' ) );
 			$this->assertFileDoesNotExist( $dir . '/post-424242-permission-test.html' );
 			$this->assertSame( 'original archive', file_get_contents( $file ) );
-			$this->assertNotFalse( wp_next_scheduled( AutomaticUpdates::HOOK ) );
+			$this->assertNotFalse( wp_next_scheduled( AutomaticUpdates::HOOK, array( $job ) ) );
 		} finally {
 			unlink( $file );
 		}
 	}
 
-	public function testBlockedCronRetainsPendingDeletion(): void {
-		$job = array( 'id' => 42, 'delete' => true, 'paths' => array( '/proc/version' ), 'year' => '2026' );
-		$pending = array( 42 => array( $job ) );
-		$GLOBALS['_test_options'][ AutomaticUpdates::OPTION ] = $pending;
-		AutomaticUpdates::run_pending();
-		$this->assertSame( $pending, get_option( AutomaticUpdates::OPTION ) );
-		$this->assertNotFalse( wp_next_scheduled( AutomaticUpdates::HOOK ) );
+	public function testQueuedJobIsUpdatedAndRetainsEarlierPathsAndYears(): void {
+		$post = (object) array( 'ID' => 42, 'post_type' => 'post', 'post_date' => '2025-10-01' );
+		$old = AutomaticUpdates::make_job( $post, false );
+		wp_schedule_single_event( 12345, AutomaticUpdates::HOOK, array( $old ) );
+		$post->post_date = '2026-10-01';
+		AutomaticUpdates::update( $post, true );
+		$events = array_values( $GLOBALS['_test_scheduled'][ AutomaticUpdates::HOOK ] );
+		$this->assertCount( 1, $events );
+		$this->assertSame( 12345, $events[0]['timestamp'] );
+		$job = $events[0]['args'][0];
+		$this->assertTrue( $job['delete'] );
+		$this->assertSame( array( '2025', '2026' ), $job['years'] );
+		$this->assertCount( 4, $job['paths'] );
+		$this->assertSame( $old['paths'], array_slice( $job['paths'], 0, 2 ) );
+	}
+
+	public function testBlockedCronReschedulesCapturedDeletionParameters(): void {
+		$job = array( 'id' => 42, 'delete' => true, 'paths' => array( '/proc/version' ), 'years' => array( '2026' ) );
+		AutomaticUpdates::run_pending( $job );
+		$this->assertNotFalse( wp_next_scheduled( AutomaticUpdates::HOOK, array( $job ) ) );
+		$event = $GLOBALS['_test_scheduled'][ AutomaticUpdates::HOOK ][ serialize( array( $job ) ) ];
+		$this->assertSame( array( $job ), $event['args'] );
+		$this->assertFalse( get_option( 'static_archive_pending_updates' ) );
 	}
 }

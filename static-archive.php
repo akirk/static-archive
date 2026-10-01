@@ -27,7 +27,7 @@ require_once __DIR__ . '/includes/class-cli.php';
 class Plugin {
 
 	public function __construct() {
-		add_action( 'static_archive_pending_updates', array( AutomaticUpdates::class, 'run_pending' ) );
+		add_action( AutomaticUpdates::HOOK, array( AutomaticUpdates::class, 'run_pending' ) );
 		add_action( 'transition_post_status', array( $this, 'on_post_status_change' ), 10, 3 );
 		add_action( 'before_delete_post', array( $this, 'on_post_delete' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_page' ) );

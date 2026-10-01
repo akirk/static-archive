@@ -56,7 +56,7 @@ When you publish, update, or delete a post or page, the plugin automatically reg
 - The main index
 - The year archive for that post's year (posts only)
 
-Automatic updates run immediately when the archive files are writable. If permissions prevent an update (for example, a CLI import cannot overwrite files owned by web PHP), the plugin queues it for WP-Cron and combines pending post updates, rebuilding each affected year and the main index once. Deletions retain their original file paths until the worker can remove them. Pending work is retained and failures are logged if the worker still cannot write.
+Automatic updates run immediately when the archive files are writable. If permissions prevent an update (for example, a CLI import cannot overwrite files owned by web PHP), the plugin schedules a single WP-Cron event carrying the post ID, original archive paths, and affected years. Later changes update the queued event for that post, preserving earlier paths and years for cleanup; each event updates its post, affected year archives, and the main index. Deletions retain their original file paths until the worker can remove them. Failed jobs are rescheduled and failures are logged if the worker still cannot write.
 
 WP-Cron must run through web PHP with access to the archive files; running cron through WP-CLI under the same restricted user will leave the work pending. Updates become eligible after one minute and run when WordPress cron is triggered. Explicit manual generation commands remain synchronous.
 

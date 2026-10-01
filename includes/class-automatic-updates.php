@@ -7,25 +7,12 @@ namespace StaticArchive;
  */
 class AutomaticUpdates {
 
-	const OPTION = 'static_archive_pending_updates';
-	const HOOK   = 'static_archive_pending_updates';
+	const HOOK = 'static_archive_update_post';
 
 	public static function update( $post, $delete = false ) {
-		$job     = self::make_job( $post, $delete );
-		$pending = get_option( self::OPTION, array() );
-		// Preserve paths captured before deletion and combine repeated imports.
-		if ( isset( $pending[ $post->ID ] ) || ! self::can_run( array( $job ) ) ) {
-			$pending[ $post->ID ][] = $job;
-			$pending[ $post->ID ]   = array_values( array_unique( $pending[ $post->ID ], SORT_REGULAR ) );
-			update_option( self::OPTION, $pending, false );
-			self::schedule();
-			return;
-		}
-		if ( ! self::run( array( $job ) ) ) {
-			$pending                = get_option( self::OPTION, array() );
-			$pending[ $post->ID ][] = $job;
-			update_option( self::OPTION, $pending, false );
-			self::schedule();
+		$job = self::make_job( $post, $delete );
+		if ( self::queued_event( $job['id'] ) || ! self::can_run( array( $job ) ) || ! self::run( array( $job ) ) ) {
+			self::schedule( $job );
 		}
 	}
 
@@ -39,14 +26,44 @@ class AutomaticUpdates {
 			'id'     => $post->ID,
 			'delete' => $delete,
 			'paths'  => $paths,
-			'year'   => 'page' === $post->post_type ? null : gmdate( 'Y', strtotime( $post->post_date ) ),
+			'years'  => 'page' === $post->post_type ? array() : array( gmdate( 'Y', strtotime( $post->post_date ) ) ),
 		);
 	}
 
-	private static function schedule() {
-		if ( ! wp_next_scheduled( self::HOOK ) && ! wp_schedule_single_event( time() + 60, self::HOOK ) ) {
-			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Report retained or unscheduled archive work.
-			error_log( 'Static Archive: could not schedule pending archive updates.' );
+	private static function queued_event( $post_id ) {
+		foreach ( _get_cron_array() as $timestamp => $hooks ) {
+			if ( empty( $hooks[ self::HOOK ] ) ) {
+				continue;
+			}
+			foreach ( $hooks[ self::HOOK ] as $event ) {
+				if ( (int) $event['args'][0]['id'] === (int) $post_id ) {
+					$event['timestamp'] = $timestamp;
+					return $event;
+				}
+			}
+		}
+		return false;
+	}
+
+	private static function schedule( $job ) {
+		$queued = self::queued_event( $job['id'] );
+		if ( $queued ) {
+			$previous     = $queued['args'][0];
+			$job['paths'] = array_values( array_unique( array_merge( $previous['paths'], $job['paths'] ) ) );
+			$job['years'] = array_values( array_unique( array_merge( $previous['years'], $job['years'] ) ) );
+			if ( array( $job ) === $queued['args'] ) {
+				return;
+			}
+		}
+		$timestamp = $queued ? $queued['timestamp'] : time() + 60;
+		// Schedule the replacement first so a scheduling failure retains the old event.
+		if ( ! wp_schedule_single_event( $timestamp, self::HOOK, array( $job ) ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Report unscheduled archive work.
+			error_log( 'Static Archive: could not schedule archive update for post ' . $job['id'] . '.' );
+			return;
+		}
+		if ( $queued ) {
+			wp_unschedule_event( $queued['timestamp'], self::HOOK, $queued['args'] );
 		}
 	}
 
@@ -88,9 +105,9 @@ class AutomaticUpdates {
 					continue;
 				}
 				$files[] = $base . $generator->get_index_filename( $ext );
-				if ( $job['year'] ) {
+				foreach ( $job['years'] as $year ) {
 					foreach ( $generator->get_year_archive_filenames( $ext ) as $filename ) {
-						$files[] = $base . $job['year'] . '/' . $filename;
+						$files[] = $base . $year . '/' . $filename;
 					}
 				}
 			}
@@ -103,48 +120,22 @@ class AutomaticUpdates {
 		return true;
 	}
 
-	public static function run_pending() {
-		$pending      = get_option( self::OPTION, array() );
-		$jobs         = array();
-		$jobs_current = array();
-		foreach ( $pending as $entries ) {
-			foreach ( $entries as $job ) {
-				$jobs[] = $job;
-			}
+	public static function run_pending( $job ) {
+		// Read current state so stale events cannot recreate an unpublished or deleted post.
+		$post          = get_post( $job['id'] );
+		$job['delete'] = ! $post || 'publish' !== $post->post_status || ! in_array( $post->post_type, Generator::get_post_types(), true );
+		$jobs          = array( $job );
+		if ( ! $job['delete'] ) {
+			$current = self::make_job( $post, false );
+			// Clean up captured paths if a post changed its date or page slug while queued.
+			$jobs[0]['paths']  = array_diff( $job['paths'], $current['paths'] );
+			$jobs[0]['delete'] = true;
+			$jobs[]            = $current;
 		}
-		if ( ! $jobs ) {
-			return;
-		}
-		// Resolve current state, including posts deleted since the job was queued.
-		foreach ( $jobs as &$job ) {
-			$post          = get_post( $job['id'] );
-			$job['delete'] = ! $post || 'publish' !== $post->post_status || ! in_array( $post->post_type, Generator::get_post_types(), true );
-			if ( ! $job['delete'] ) {
-				$jobs_current[] = self::make_job( $post, false );
-			}
-		}
-		unset( $job );
-		$jobs = array_merge( $jobs, $jobs_current );
-		if ( ! self::can_run( $jobs ) ) {
-			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Report retained or unscheduled archive work.
-			error_log( 'Static Archive: pending updates retained because archive paths are not writable.' );
-			self::schedule();
-			return;
-		}
-		if ( ! self::run( $jobs ) ) {
-			self::schedule();
-			return;
-		}
-		// Preserve entries added by another request while generation was running.
-		$current = get_option( self::OPTION, array() );
-		foreach ( $pending as $id => $entries ) {
-			if ( isset( $current[ $id ] ) && $current[ $id ] === $entries ) {
-				unset( $current[ $id ] );
-			}
-		}
-		update_option( self::OPTION, $current, false );
-		if ( $current ) {
-			self::schedule();
+		if ( ! self::can_run( $jobs ) || ! self::run( $jobs ) ) {
+			// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Report archive work that needs retrying.
+			error_log( 'Static Archive: retrying archive update for post ' . $job['id'] . '.' );
+			self::schedule( $job );
 		}
 	}
 
@@ -174,8 +165,8 @@ class AutomaticUpdates {
 				} else {
 					$posts[ $job['id'] ] = true;
 				}
-				if ( $job['year'] ) {
-					$years[ $job['year'] ] = true;
+				foreach ( $job['years'] as $year ) {
+					$years[ $year ] = true;
 				}
 			}
 			foreach ( array_keys( $posts ) as $id ) {
