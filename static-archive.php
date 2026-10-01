@@ -18,12 +18,14 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/includes/class-generator.php';
+require_once __DIR__ . '/includes/class-automatic-updates.php';
 require_once __DIR__ . '/includes/class-posts-and-pages.php';
 require_once __DIR__ . '/includes/class-cli.php';
 
 class Static_Archive {
 
 	public function __construct() {
+		add_action( 'static_archive_pending_updates', array( 'Static_Archive_Automatic_Updates', 'run_pending' ) );
 		add_action( 'transition_post_status', array( $this, 'on_post_status_change' ), 10, 3 );
 		add_action( 'before_delete_post', array( $this, 'on_post_delete' ) );
 		add_action( 'admin_menu', array( $this, 'add_admin_page' ) );
@@ -52,23 +54,8 @@ class Static_Archive {
 			return;
 		}
 
-		$generator = new Static_Archive_Generator();
-
-		if ( 'publish' === $new_status ) {
-			$generator->copy_stylesheet();
-			$generator->generate_post( $wp_post->ID );
-			$generator->generate_index();
-			if ( 'page' !== $wp_post->post_type ) {
-				$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
-				$generator->generate_year_archive( $year );
-			}
-		} elseif ( 'publish' === $old_status && 'publish' !== $new_status ) {
-			$generator->delete_post_files( $wp_post->ID );
-			$generator->generate_index();
-			if ( 'page' !== $wp_post->post_type ) {
-				$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
-				$generator->generate_year_archive( $year );
-			}
+		if ( 'publish' === $new_status || 'publish' === $old_status ) {
+			Static_Archive_Automatic_Updates::update( $wp_post, 'publish' !== $new_status );
 		}
 	}
 
@@ -82,13 +69,7 @@ class Static_Archive {
 			return;
 		}
 
-		$generator = new Static_Archive_Generator();
-		$generator->delete_post_files( $post_id );
-		$generator->generate_index();
-		if ( 'page' !== $wp_post->post_type ) {
-			$year = gmdate( 'Y', strtotime( $wp_post->post_date ) );
-			$generator->generate_year_archive( $year );
-		}
+		Static_Archive_Automatic_Updates::update( $wp_post, true );
 	}
 
 	/**
