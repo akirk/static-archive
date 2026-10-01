@@ -1,9 +1,13 @@
 <?php
+
+namespace StaticArchive;
+
+use WP_Post;
 /**
  * Built-in WordPress post and page support.
  */
 
-class Static_Archive_Posts_And_Pages {
+class PostsAndPages {
 
 	/**
 	 * Register the built-in post/page filters.
@@ -56,7 +60,7 @@ class Static_Archive_Posts_And_Pages {
 	 *
 	 * @param string|null              $markdown  Markdown body, or null.
 	 * @param WP_Post                  $wp_post   Post object.
-	 * @param Static_Archive_Generator $generator Generator instance.
+	 * @param Generator $generator Generator instance.
 	 * @param string                   $html      Filtered HTML body.
 	 * @return string|null
 	 */
@@ -143,3 +147,6 @@ class Static_Archive_Posts_And_Pages {
 		return empty( $posts ) ? null : $posts[0];
 	}
 }
+
+// Preserve public class names used by existing integrations.
+class_alias( PostsAndPages::class, 'Static_Archive_Posts_And_Pages' );

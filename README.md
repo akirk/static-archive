@@ -47,12 +47,18 @@ uploads/                          (or uploads/sites/{id}/ on multisite)
 │   └── ...
 ```
 
+Plugin classes use the `StaticArchive` namespace (for example, `StaticArchive\Generator`). Legacy `Static_Archive_*` class names remain available as compatibility aliases for existing integrations.
+
 ### Automatic updates
 
 When you publish, update, or delete a post or page, the plugin automatically regenerates:
 - The individual post's HTML and/or Markdown file
 - The main index
 - The year archive for that post's year (posts only)
+
+Automatic updates run immediately when the archive files are writable. If permissions prevent an update (for example, a CLI import cannot overwrite files owned by web PHP), the plugin schedules a single WP-Cron event carrying the post ID, original archive paths, and affected years. Later changes update the queued event for that post, preserving earlier paths and years for cleanup; each event updates its post, affected year archives, and the main index. Deletions retain their original file paths until the worker can remove them. Failed jobs are rescheduled and failures are logged if the worker still cannot write.
+
+WP-Cron must run through web PHP with access to the archive files; running cron through WP-CLI under the same restricted user will leave the work pending. Updates become eligible after one minute and run when WordPress cron is triggered. Explicit manual generation commands remain synchronous.
 
 ### Filename suffix
 
@@ -194,7 +200,7 @@ year archive updates are still handled by Static Archive.
 ```php
 add_filter(
     'static_archive_post_html',
-    function( string $html, WP_Post $post, Static_Archive_Generator $generator ): string {
+    function( string $html, WP_Post $post, \StaticArchive\Generator $generator ): string {
         if ( 'my_private_post_type' !== $post->post_type ) {
             return $html;
         }
@@ -221,7 +227,7 @@ add_filter(
     function(
         ?string $markdown,
         WP_Post $post,
-        Static_Archive_Generator $generator,
+        \StaticArchive\Generator $generator,
         string $html
     ): ?string {
         if ( 'my_private_post_type' !== $post->post_type ) {
@@ -247,7 +253,7 @@ post/page integration provides these only for the `post` post type.
 ```php
 add_filter(
     'static_archive_post_previous_post',
-    function( ?WP_Post $previous, WP_Post $post, Static_Archive_Generator $generator ): ?WP_Post {
+    function( ?WP_Post $previous, WP_Post $post, \StaticArchive\Generator $generator ): ?WP_Post {
         if ( 'my_private_post_type' !== $post->post_type ) {
             return $previous;
         }
